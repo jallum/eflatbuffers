@@ -7,10 +7,13 @@ defmodule Eflatbuffers.Mixfile do
       version: "0.1.0",
       description: "Elixir/Erlang flatbuffers implementation",
       package: package(),
-      elixir: ">= 1.1.1",
-      build_embedded: Mix.env == :prod,
-      start_permanent: Mix.env == :prod,
-      deps: deps()]
+      elixir: "~> 1.15",
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      deps: deps(),
+      compilers: [:yecc, :leex] ++ Mix.compilers(),
+      elixirc_paths: elixirc_paths(Mix.env())
+    ]
   end
 
   defp package() do
@@ -41,8 +44,16 @@ defmodule Eflatbuffers.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:flatbuffer_port, git: "https://github.com/reimerei/elixir-flatbuffers", branch: "master", only: :test, override: true},
-      {:ex_doc, ">= 0.0.0", only: :dev},
+      {:flatbuffer_port,
+       git: "https://github.com/reimerei/elixir-flatbuffers",
+       branch: "master",
+       only: :test,
+       override: true},
+      {:poison, ">= 0.0.0"},
+      {:ex_doc, ">= 0.0.0", only: :dev}
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 end
