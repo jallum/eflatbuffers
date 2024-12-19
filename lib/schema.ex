@@ -1,47 +1,16 @@
 defmodule Eflatbuffers.Schema do
-  @referenced_types [
-    :string,
-    :byte,
-    :ubyte,
-    :bool,
-    :short,
-    :ushort,
-    :int,
-    :uint,
-    :float,
-    :long,
-    :ulong,
-    :double
-  ]
-
   def parse!(schema_str) do
     case parse(schema_str) do
-      {:ok, schema} ->
-        schema
-
-      {:error, error} ->
-        throw({:error, error})
+      {:ok, schema} -> schema
+      {:error, error} -> throw({:error, error})
     end
   end
 
   def parse(schema_str) when is_binary(schema_str) do
-    tokens = lexer(schema_str)
-
-    case :schema_parser.parse(tokens) do
-      {:ok, data} ->
-        {:ok, decorate(data)}
-
-      error ->
-        error
+    with {:ok, tokens, _} <- schema_str |> String.to_charlist() |> :schema_lexer.string(),
+         {:ok, data} <- :schema_parser.parse(tokens) do
+      {:ok, decorate(data)}
     end
-  end
-
-  def lexer(schema_str) do
-    {:ok, tokens, _} =
-      to_charlist(schema_str)
-      |> :schema_lexer.string()
-
-    tokens
   end
 
   # this preprocesses the schema
@@ -91,6 +60,9 @@ defmodule Eflatbuffers.Schema do
               )
 
             Map.put(acc, key, {:union, %{members: hash}})
+
+          {key, {:struct, fields}}, acc ->
+            Map.put(acc, key, {:struct, %{members: fields}})
         end
       )
 
@@ -148,6 +120,16 @@ defmodule Eflatbuffers.Schema do
     end
   end
 
+  def decorate_referenced_field({field_value, default_value}, entities) do
+    case Map.get(entities, field_value) do
+      nil ->
+        throw({:error, {:entity_not_found, field_value}})
+
+      {{:enum, _}, _} ->
+        {:enum, %{name: field_value, default: String.to_atom(default_value)}}
+    end
+  end
+
   def decorate_referenced_field(field_value, entities) do
     case Map.get(entities, field_value) do
       nil ->
@@ -161,6 +143,9 @@ defmodule Eflatbuffers.Schema do
 
       {:union, _} ->
         {:union, %{name: field_value}}
+
+      {:struct, _} ->
+        {:struct, %{name: field_value}}
     end
   end
 
@@ -185,6 +170,22 @@ defmodule Eflatbuffers.Schema do
   end
 
   def is_referenced?(type) do
-    not Enum.member?(@referenced_types, type)
+    not Enum.member?(referenced_types(), type)
   end
+
+  defp referenced_types,
+    do: [
+      :string,
+      :byte,
+      :ubyte,
+      :bool,
+      :short,
+      :ushort,
+      :int,
+      :uint,
+      :float,
+      :long,
+      :ulong,
+      :double
+    ]
 end

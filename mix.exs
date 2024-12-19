@@ -1,4 +1,4 @@
-defmodule Eflatbuffers.Mixfile do
+defmodule Eflatbuffers.MixProject do
   use Mix.Project
 
   def project do
@@ -6,23 +6,11 @@ defmodule Eflatbuffers.Mixfile do
       app: :eflatbuffers,
       version: "0.1.0",
       description: "Elixir/Erlang flatbuffers implementation",
-      package: package(),
       elixir: "~> 1.15",
-      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:yecc, :leex] ++ Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env())
-    ]
-  end
-
-  defp package() do
-    [
-      name: "eflatbuffers",
-      files: ["config", "lib", "src", "test", "mix.exs", "README*", "LICENSE*"],
-      maintainers: ["Florian Odronitz"],
-      licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/wooga/eflatbuffers"}
     ]
   end
 
@@ -49,8 +37,8 @@ defmodule Eflatbuffers.Mixfile do
        branch: "master",
        only: :test,
        override: true},
-      {:poison, ">= 0.0.0"},
-      {:ex_doc, ">= 0.0.0", only: :dev}
+      {:poison, "~> 6.0"},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end
 

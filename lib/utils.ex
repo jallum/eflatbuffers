@@ -20,10 +20,26 @@ defmodule Eflatbuffers.Utils do
   def scalar_size(:double), do: 8
   def scalar_size(type), do: throw({:error, {:unknown_scalar, type}})
 
-  def extract_scalar_type({:enum, %{name: enum_name}}, {tables, _options}) do
-    {:enum, %{type: type}} = Map.get(tables, enum_name)
+  def extract_scalar_type({:enum, %{name: enum_name}}, {entities, _options}) do
+    {:enum, %{type: type}} = Map.get(entities, enum_name)
     type
   end
 
   def extract_scalar_type(type, _), do: type
+
+  def sizeof({:enum, %{name: enum_name}}, {entities, _} = schema) do
+    {:enum, %{type: type}} = Map.get(entities, enum_name)
+    sizeof(type, schema)
+  end
+
+  def sizeof({:struct, %{name: struct_name}}, {entities, _} = schema) do
+    {:struct, %{members: members}} = Map.get(entities, struct_name)
+    Enum.reduce(members, 0, fn {_, type}, acc -> acc + sizeof(type, schema) end)
+  end
+
+  def sizeof({:table, _}, _), do: 4
+  def sizeof({:vector, _}, _), do: 4
+  def sizeof({:union, _}, _), do: 4
+
+  def sizeof(type, _), do: scalar_size(type)
 end
