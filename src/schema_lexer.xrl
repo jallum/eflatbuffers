@@ -28,6 +28,19 @@ file_extension{WS}  : {token, {file_extension, TokenLine}}.
 {NL}            : skip_token.
 //.*            : skip_token.
 
+byte            : {token, {byte, TokenLine}}.
+ubyte           : {token, {ubyte, TokenLine}}.
+short           : {token, {short, TokenLine}}.
+ushort          : {token, {ushort, TokenLine}}.
+int             : {token, {int, TokenLine}}.
+uint            : {token, {uint, TokenLine}}.
+long            : {token, {long, TokenLine}}.
+ulong           : {token, {ulong, TokenLine}}.
+float           : {token, {float, TokenLine}}.
+double          : {token, {double, TokenLine}}.
+bool            : {token, {bool, TokenLine}}.
+
+
 \{    : {token, {'{',  TokenLine}}.
 \}    : {token, {'}',  TokenLine}}.
 \(    : {token, {'(',  TokenLine}}.

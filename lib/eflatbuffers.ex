@@ -1,7 +1,10 @@
 defmodule Eflatbuffers do
-  def parse_schema(schema_str) do
-    Eflatbuffers.Schema.parse(schema_str)
-  end
+  alias Eflatbuffers.RandomAccess
+  alias Eflatbuffers.Reader
+  alias Eflatbuffers.Schema
+  alias Eflatbuffers.Writer
+
+  def parse_schema(schema_str), do: Schema.from_string(schema_str)
 
   def parse_schema!(schema_str) do
     case parse_schema(schema_str) do
@@ -10,108 +13,70 @@ defmodule Eflatbuffers do
     end
   end
 
-  def write!(map, schema_str) when is_binary(schema_str) do
-    write!(map, parse_schema!(schema_str))
-  end
+  def write!(map, {_, options} = schema) do
+    root_type = Keyword.fetch!(options, :root_type)
 
-  def write!(map, {_, %{root_type: root_type} = options} = schema) do
     root_table =
       [<<vtable_offset::little-size(16)>> | _] =
-      Eflatbuffers.Writer.write({:table, %{name: root_type}}, map, [], schema)
+      Writer.write(root_type, map, [], schema)
 
-    file_identifier =
-      case Map.get(options, :file_identifier) do
+    data_identifier =
+      case Keyword.get(options, :data_identifier) do
         <<bin::size(32)>> -> <<bin::size(32)>>
         _ -> <<0, 0, 0, 0>>
       end
 
     [
-      <<vtable_offset + 4 + byte_size(file_identifier)::little-size(32)>>,
-      file_identifier,
+      <<vtable_offset + 4 + byte_size(data_identifier)::little-size(32)>>,
+      data_identifier,
       root_table
     ]
     |> :erlang.iolist_to_binary()
   end
 
-  def write(map, schema_str) when is_binary(schema_str) do
-    case parse_schema(schema_str) do
-      {:ok, schema} -> write(map, schema)
-      error -> error
-    end
-  end
-
   def write(map, schema) do
-    try do
-      {:ok, write!(map, schema)}
-    rescue
-      error -> {:error, error}
-    catch
-      error -> error
+    {:ok, write!(map, schema)}
+  rescue
+    error -> {:error, error}
+  catch
+    error -> error
+  end
+
+  def read(data, {_, opts} = schema) do
+    with :ok <- match_ids(data, Keyword.get(opts, :file_identifier)),
+         root_type <- Keyword.get(opts, :root_type) do
+      {:ok, Reader.read(root_type, 0, data, schema)}
     end
   end
 
-  def read!(data, schema_str) when is_binary(schema_str) do
-    read!(data, parse_schema!(schema_str))
-  end
-
-  def read!(data, {_, schema_options = %{root_type: root_type}} = schema) do
-    match_identifiers(data, schema_options)
-    Eflatbuffers.Reader.read({:table, %{name: root_type}}, 0, data, schema)
-  end
-
-  def match_identifiers(
-        <<_::size(4)-binary, identifier_data::size(4)-binary, _::binary>>,
-        schema_options
-      ) do
-    case Map.get(schema_options, :file_identifier) do
-      # nothing in schema
-      nil ->
-        :ok
-
-      # schema matches data
-      ^identifier_data ->
-        :ok
-
-      # defined in schema but data says something else
-      identifier_schema ->
-        throw(
-          {:error, {:identifier_mismatch, %{data: identifier_data, schema: identifier_schema}}}
-        )
+  def read!(data, schema) do
+    case read(data, schema) do
+      {:ok, result} -> result
+      {:error, reason} -> throw(reason)
     end
   end
 
-  def read(data, schema_str) when is_binary(schema_str) do
-    case parse_schema(schema_str) do
-      {:ok, schema} -> read(data, schema)
-      error -> error
-    end
-  end
-
-  def read(data, schema) do
-    try do
-      {:ok, read!(data, schema)}
-    rescue
-      error -> {:error, error}
-    catch
-      error -> error
+  defp match_ids(<<_::binary-size(4), data_id::binary-size(4), _::binary>>, id) do
+    cond do
+      is_nil(id) and data_id == <<0, 0, 0, 0>> -> :ok
+      id == data_id -> :ok
+      true -> {:error, {:id_mismatch, %{data: data_id, schema: id}}}
     end
   end
 
   def get(data, path, schema) do
-    try do
-      {:ok, get!(data, path, schema)}
-    rescue
-      error -> {:error, error}
-    catch
-      error -> error
-    end
+    {:ok, get!(data, path, schema)}
+  rescue
+    error -> {:error, error}
+  catch
+    error -> error
   end
 
-  def get!(data, path, schema) when is_binary(schema) do
-    get!(data, path, parse_schema!(schema))
-  end
+  def get!(data, path, schema) when is_binary(schema),
+    do: get!(data, path, parse_schema!(schema))
 
-  def get!(data, path, {_tables, %{root_type: root_type}} = schema) do
-    Eflatbuffers.RandomAccess.get(path, {:table, %{name: root_type}}, 0, data, schema)
+  def get!(data, path, {_tables, options} = schema) do
+    root_type = Keyword.fetch!(options, :root_type)
+    RandomAccess.get(path, root_type, 0, data, schema)
   end
 end

@@ -1,114 +1,124 @@
 defmodule Eflatbuffers.Writer do
   alias Eflatbuffers.Utils
 
-  def write({_, %{default: same}}, same, _, _) do
-    []
-  end
+  def to_i8(i8), do: <<i8::signed-8>>
+  def to_u8(u8), do: <<u8::unsigned-8>>
+  def to_i16(i16), do: <<i16::signed-little-16>>
+  def to_u16(u16), do: <<u16::unsigned-little-16>>
+  def to_i32(i32), do: <<i32::signed-little-32>>
+  def to_u32(u32), do: <<u32::unsigned-little-32>>
+  def to_i64(i64), do: <<i64::signed-little-64>>
+  def to_u64(u64), do: <<u64::unsigned-little-64>>
+  def to_f32(f32), do: <<f32::float-little-32>>
+  def to_f64(f64), do: <<f64::float-little-64>>
 
-  def write({_, _}, nil, _, _) do
-    []
-  end
+  def write({_, %{default: same}}, same, _, _), do: []
 
-  def write({:bool, _options}, true, _, _) do
-    <<1>>
-  end
+  # def write({_, _}, nil, _, _) do
+  #   []
+  # end
 
-  def write({:bool, _options}, false, _, _) do
-    <<0>>
-  end
+  def write({:bool, _options}, true, _, _), do: to_u8(1)
+  def write({:bool, _options}, false, _, _), do: to_u8(0)
 
-  def write({:byte, _options}, byte, _, _)
-      when is_integer(byte) and byte >= -128 and byte <= 127 do
-    <<byte::signed-size(8)>>
-  end
+  def write({:byte, _options}, i8, _, _)
+      when is_integer(i8) and i8 >= -128 and i8 <= 127,
+      do: to_i8(i8)
 
-  def write({:ubyte, _options}, byte, _, _) when is_integer(byte) and byte >= 0 and byte <= 255 do
-    <<byte::unsigned-size(8)>>
-  end
+  def write({:ubyte, _options}, u8, _, _)
+      when is_integer(u8) and u8 >= 0 and u8 <= 255,
+      do: to_u8(u8)
 
-  def write({:short, _options}, integer, _, _)
-      when is_integer(integer) and integer <= 32_767 and integer >= -32_768 do
-    <<integer::signed-little-size(16)>>
-  end
+  def write({:short, _options}, i16, _, _)
+      when is_integer(i16) and i16 <= 32_767 and i16 >= -32_768,
+      do: to_i16(i16)
 
-  def write({:ushort, _options}, integer, _, _)
-      when is_integer(integer) and integer >= 0 and integer <= 65536 do
-    <<integer::unsigned-little-size(16)>>
-  end
+  def write({:ushort, _options}, u16, _, _)
+      when is_integer(u16) and u16 >= 0 and u16 <= 65536,
+      do: to_u16(u16)
 
-  def write({:int, _options}, integer, _, _)
-      when is_integer(integer) and integer >= -2_147_483_648 and integer <= 2_147_483_647 do
-    <<integer::signed-little-size(32)>>
-  end
+  def write({:int, _options}, i32, _, _)
+      when is_integer(i32) and i32 >= -2_147_483_648 and i32 <= 2_147_483_647,
+      do: to_i32(i32)
 
-  def write({:uint, _options}, integer, _, _)
-      when is_integer(integer) and integer >= 0 and integer <= 4_294_967_295 do
-    <<integer::unsigned-little-size(32)>>
-  end
+  def write({:uint, _options}, u32, _, _)
+      when is_integer(u32) and u32 >= 0 and u32 <= 4_294_967_295,
+      do: to_u32(u32)
 
-  def write({:float, _options}, float, _, _)
-      when (is_float(float) or is_integer(float)) and float >= -3.4e+38 and float <= +3.4e+38 do
-    <<float::float-little-size(32)>>
-  end
+  def write({:float, _options}, f32, _, _)
+      when is_number(f32) and f32 >= -3.4e+38 and f32 <= +3.4e+38,
+      do: to_f32(f32)
 
-  def write({:long, _options}, integer, _, _)
-      when is_integer(integer) and integer >= -9_223_372_036_854_775_808 and
-             integer <= 9_223_372_036_854_775_807 do
-    <<integer::signed-little-size(64)>>
-  end
+  def write({:long, _options}, i64, _, _)
+      when is_integer(i64) and i64 >= -9_223_372_036_854_775_808 and
+             i64 <= 9_223_372_036_854_775_807,
+      do: to_i64(i64)
 
-  def write({:ulong, _options}, integer, _, _)
-      when is_integer(integer) and integer >= 0 and integer <= 18_446_744_073_709_551_615 do
-    <<integer::unsigned-little-size(64)>>
-  end
+  def write({:ulong, _options}, u64, _, _)
+      when is_integer(u64) and u64 >= 0 and u64 <= 18_446_744_073_709_551_615,
+      do: to_u64(u64)
 
-  def write({:double, _options}, float, _, _)
-      when (is_float(float) or is_integer(float)) and float >= -1.7e+308 and float <= +1.7e+308 do
-    <<float::float-little-size(64)>>
-  end
+  def write({:double, _options}, f64, _, _)
+      when is_number(f64) and f64 >= -1.7e+308 and f64 <= +1.7e+308,
+      do: to_f64(f64)
 
   # complex types
+
+  def write({:struct, %{name: struct_name}}, map, _, {entities, _} = schema) when is_map(map) do
+    {:struct, %{members: members}} = Map.get(entities, struct_name)
+
+    members
+    |> Enum.map(fn {field_name, field_type} ->
+      value = Map.get(map, field_name)
+      write({field_type, %{}}, value, [struct_name, field_name], schema)
+    end)
+  end
 
   def write({:string, _options}, string, _, _) when is_binary(string) do
     <<byte_size(string)::unsigned-little-size(32)>> <> string
   end
 
-  def write({:vector, options}, values, path, schema) when is_list(values) do
-    {type, type_options} = options.type
+  def write({:vector, %{type: {type, type_options}}}, values, path, schema)
+      when is_list(values) do
     vector_length = length(values)
     # we are putting the indices as [i] as a type
     # so if something goes wrong it's easy to see
     # that it was a vector index
-    type_options_without_default = Map.put(type_options, :default, nil)
+    type_options_without_default = Map.delete(type_options, :default)
 
     index_types =
-      for i <- :lists.seq(0, vector_length - 1), do: {[i], {type, type_options_without_default}}
+      case vector_length do
+        0 ->
+          []
+
+        _ ->
+          for i <- 0..(vector_length - 1) do
+            {[i], {type, type_options_without_default}}
+          end
+      end
 
     [<<vector_length::little-size(32)>>, data_buffer_and_data(index_types, values, path, schema)]
   end
 
-  def write({:enum, options = %{name: enum_name}}, value, path, {tables, _} = schema)
-      when is_binary(value) do
-    {:enum, enum_options} = Map.get(tables, enum_name)
-    members = enum_options.members
-    {type, type_options} = enum_options.type
+  def write({:enum, %{name: enum_name} = options}, value, path, {tables, _} = schema)
+      when is_atom(value) do
+    {:enum, %{members: members, type: {type, type_options}}} = Map.get(tables, enum_name)
+
     # if we got handed some defaults from outside,
     # we put them in here
     type_options = Map.merge(type_options, options)
-    value_atom = :erlang.binary_to_existing_atom(value, :utf8)
-    index = Map.get(members, value_atom)
+    index = Map.get(members, value)
 
     case index do
-      nil -> throw({:error, {:not_in_enum, value_atom, members}})
+      nil -> throw({:error, {:not_in_enum, value, members}})
       _ -> write({type, type_options}, index, path, schema)
     end
   end
 
   # write a complete table
   def write({:table, %{name: table_name}}, map, path, {tables, _options} = schema)
-      when is_map(map) and is_atom(table_name) do
-    {:table, options} = Map.get(tables, table_name)
-    fields = options.fields
+      when is_map(map) do
+    {:table, %{fields: fields}} = Map.get(tables, table_name)
 
     {names_types, values} =
       Enum.reduce(
@@ -116,17 +126,16 @@ defmodule Eflatbuffers.Writer do
         {[], []},
         fn
           {name, {:union, %{name: union_name}}}, {type_acc, value_acc} ->
-            {:union, options} = Map.get(tables, union_name)
-            members = options.members
+            {:union, %{members: members}} = Map.get(tables, union_name)
+            type_key = :"#{name}_type"
 
-            case Map.get(map, String.to_atom(Atom.to_string(name) <> "_type")) do
+            case Map.get(map, type_key) do
               nil ->
                 type_acc_new = [{{name}, {:byte, %{default: 0}}} | type_acc]
                 value_acc_new = [0 | value_acc]
                 {type_acc_new, value_acc_new}
 
               union_type ->
-                union_type = String.to_atom(union_type)
                 union_index = Map.get(members, union_type)
 
                 type_acc_new = [
@@ -155,7 +164,7 @@ defmodule Eflatbuffers.Writer do
   end
 
   # fail if nothing matches
-  def write({type, _options}, data, path, _) do
+  def write({_type, _options} = type, data, path, _) do
     throw({:error, {:wrong_type, type, data, Enum.reverse(path)}})
   end
 

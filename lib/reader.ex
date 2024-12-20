@@ -65,8 +65,7 @@ defmodule Eflatbuffers.Reader do
   end
 
   # read a complete table, given a pointer to the springboard
-  def read({:table, %{name: table_name}}, table_pointer_pointer, data, {entities, _} = schema)
-      when is_atom(table_name) do
+  def read({:table, %{name: table_name}}, table_pointer_pointer, data, {entities, _} = schema) do
     {:table, %{fields: fields}} = Map.get(entities, table_name)
 
     table_offset = read_i32(data, table_pointer_pointer)
@@ -84,8 +83,7 @@ defmodule Eflatbuffers.Reader do
     read_table_fields(fields, vtable, table_pointer, data, schema)
   end
 
-  def read({:struct, %{name: struct_name}}, vtable_pointer, data, {entities, _} = schema)
-      when is_atom(struct_name) do
+  def read({:struct, %{name: struct_name}}, vtable_pointer, data, {entities, _} = schema) do
     {:struct, %{members: members}} = Map.get(entities, struct_name)
 
     {struct, _offset} =
