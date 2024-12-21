@@ -115,11 +115,11 @@ defmodule Eflatbuffers.Reader do
     vtable_length = Buffer.cursor(data, vtable_pointer) |> Cursor.get_i16()
     vtable_fields_pointer = vtable_pointer + 4
     vtable_fields_length = vtable_length - 4
-    IO.inspect(vtable_fields_length)
 
-    vtable = Buffer.cursor(data, vtable_fields_pointer) |> Cursor.get_bytes(vtable_fields_length)
+    # |> Cursor.get_bytes(vtable_fields_length)
+    vtable = Buffer.cursor(data, vtable_fields_pointer)
 
-    read_table_fields(fields, vtable, table_pointer, data, schema)
+    read_table_fields(fields, vtable, div(vtable_fields_length, 2), table_pointer, data, schema)
   end
 
   def read({:struct, %{name: struct_name}}, vtable_pointer, data, {entities, _} = schema) do
@@ -149,99 +149,74 @@ defmodule Eflatbuffers.Reader do
 
   def read(type, _, _, _), do: throw({:error, {:unknown_type, type}})
 
-  def read_table_fields(fields, vtable, data_pointer, data, schema),
-    do: %{} |> read_table_row(fields, vtable, data_pointer, data, schema)
+  def read_table_fields(fields, vtable, count, data_pointer, data, schema),
+    do: read_table_row(%{}, fields, vtable, count, data_pointer, data, schema)
 
   # we might still have more fields but we ran out of vtable slots
   # this happens if the schema has more fields than the data (schema evolution)
-  defp read_table_row(row, _, <<>>, _, _, _), do: row
+  defp read_table_row(row, _, _, 0, _, _, _), do: row
 
   # we might have more data but no more fields
   # that means the data is ahead and has more data than the schema
-  defp read_table_row(row, [], _, _, _, _), do: row
+  defp read_table_row(row, [], _, _, _, _, _), do: row
 
   defp read_table_row(
          row,
          [{name, {:union, %{name: union_name}}} | fields],
-         <<data_offset::little-size(16), vtable::binary>>,
+         vtable,
+         count,
          data_pointer,
          data,
          {tables, _options} = schema
        ) do
-    # for a union byte field named $fieldname$_type is prefixed
-    union_index = Buffer.cursor(data, data_pointer + data_offset) |> Cursor.get_u8()
+    data_offset = Cursor.get_i16(vtable)
 
-    case union_index do
-      0 ->
-        # index is null, so field is not set
-        # carry on
-        read_table_row(row, fields, vtable, data_pointer, data, schema)
+    {fields, row} =
+      case Buffer.cursor(data, data_pointer + data_offset) |> Cursor.get_u8() do
+        0 ->
+          # index is null, so field is not set
+          # carry on
+          {fields, row}
 
-      _ ->
-        # we have a table set so we get the type and
-        # expect it as the next record in the vtable
-        {:union, %{members: members}} = Map.get(tables, union_name)
+        union_index ->
+          # we have a table set so we get the type and
+          # expect it as the next record in the vtable
+          {:union, %{members: members}} = Map.get(tables, union_name)
 
-        union_type = Map.get(members, union_index - 1)
-        type_key = :"#{name}_type"
+          union_type = Map.get(members, union_index - 1)
+          type_key = :"#{name}_type"
 
-        row
-        |> Map.put(type_key, union_type)
-        |> read_table_row(
-          [{name, {:table, %{name: union_type}}} | fields],
-          vtable,
-          data_pointer,
-          data,
-          schema
-        )
-    end
-  end
+          {[{name, {:table, %{name: union_type}}} | fields], Map.put(row, type_key, union_type)}
+      end
 
-  # we find a null pointer
-  # so we set the dafault
-  defp read_table_row(
-         row,
-         [{name, {:enum, options}} | fields],
-         <<0, 0, vtable::binary>>,
-         data_pointer,
-         data,
-         {tables, _} = schema
-       ) do
-    {_, enum_options} = Map.get(tables, options.name)
-    {_, %{default: default}} = enum_options.type
-
-    row
-    |> Map.put(name, Map.get(enum_options.members, default))
-    |> read_table_row(fields, vtable, data_pointer, data, schema)
-  end
-
-  defp read_table_row(
-         row,
-         [{name, {_type, options}} | fields],
-         <<0, 0, vtable::binary>>,
-         data_pointer,
-         data,
-         schema
-       ) do
-    case Map.get(options, :default) do
-      nil -> row
-      default -> row |> Map.put(name, default)
-    end
-    |> read_table_row(fields, vtable, data_pointer, data, schema)
+    read_table_row(row, fields, Cursor.skip(vtable, 2), count - 1, data_pointer, data, schema)
   end
 
   defp read_table_row(
          row,
          [{name, type} | fields],
-         <<data_offset::little-size(16), vtable::binary>>,
+         vtable,
+         count,
          data_pointer,
          data,
          schema
        ) do
-    value = read(type, data_pointer + data_offset, data, schema)
+    data_offset = Cursor.get_i16(vtable)
 
-    row
-    |> Map.put(name, value)
-    |> read_table_row(fields, vtable, data_pointer, data, schema)
+    row =
+      if data_offset != 0 do
+        value = read(type, data_pointer + data_offset, data, schema)
+        Map.put(row, name, value)
+      else
+        case type do
+          {_type, %{default: default}} ->
+            Map.put(row, name, default)
+
+          {_type, _options} ->
+            row
+        end
+      end
+
+    read_table_row(row, fields, Cursor.skip(vtable, 2), count - 1, data_pointer, data, schema)
   end
 end
