@@ -26,6 +26,7 @@ defmodule Eflatbuffers.Schema do
   defp chain_load(source, file_contents, resolver_fn, loaded \\ []) do
     with {:ok, tokens, _} <- file_contents |> String.to_charlist() |> :schema_lexer.string(),
          {:ok, {entities, directives}} <- :schema_parser.parse(tokens),
+         file_id <- directives[:file_identifier],
          namespace <- directives[:namespace],
          root_type <- directives[:root_type],
          entities <- apply_namespace(entities, namespace),
@@ -56,7 +57,9 @@ defmodule Eflatbuffers.Schema do
           {:error, reason}
 
         included_entities ->
-          {:ok, {Map.merge(included_entities, entities), [root_type: root_type]}}
+          {:ok,
+           {Map.merge(included_entities, entities),
+            [root_type: root_type, file_identifier: file_id]}}
       end
     end
   end

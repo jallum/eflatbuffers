@@ -1,57 +1,95 @@
 defmodule Eflatbuffers.Reader do
   alias Eflatbuffers.Utils
-
-  defp decode_i8(<<i8::signed-size(8)>>), do: i8
-  defp decode_u8(<<u8::unsigned-size(8)>>), do: u8
-  defp decode_i16(<<i16::signed-little-size(16)>>), do: i16
-  defp decode_u16(<<u16::unsigned-little-size(16)>>), do: u16
-  defp decode_i32(<<i32::signed-little-size(32)>>), do: i32
-  defp decode_u32(<<u32::unsigned-little-size(32)>>), do: u32
-  defp decode_i64(<<i64::signed-little-size(64)>>), do: i64
-  defp decode_u64(<<u64::unsigned-little-size(64)>>), do: u64
-  defp decode_f32(<<f32::float-little-size(32)>>), do: f32
-  defp decode_f64(<<f64::float-little-size(64)>>), do: f64
-
-  defp read_i8(data, at), do: read_from_data_buffer(data, at, 1) |> decode_i8()
-  defp read_u8(data, at), do: read_from_data_buffer(data, at, 1) |> decode_u8()
-  defp read_i16(data, at), do: read_from_data_buffer(data, at, 2) |> decode_i16()
-  defp read_u16(data, at), do: read_from_data_buffer(data, at, 2) |> decode_u16()
-  defp read_i32(data, at), do: read_from_data_buffer(data, at, 4) |> decode_i32()
-  defp read_u32(data, at), do: read_from_data_buffer(data, at, 4) |> decode_u32()
-  defp read_i64(data, at), do: read_from_data_buffer(data, at, 8) |> decode_i64()
-  defp read_u64(data, at), do: read_from_data_buffer(data, at, 8) |> decode_u64()
-  defp read_f32(data, at), do: read_from_data_buffer(data, at, 4) |> decode_f32()
-  defp read_f64(data, at), do: read_from_data_buffer(data, at, 8) |> decode_f64()
-
-  defp read_scalar(:bool, data, at), do: read_u8(data, at) != 0
-  defp read_scalar(:byte, data, at), do: read_i8(data, at)
-  defp read_scalar(:ubyte, data, at), do: read_u8(data, at)
-  defp read_scalar(:short, data, at), do: read_i16(data, at)
-  defp read_scalar(:ushort, data, at), do: read_u16(data, at)
-  defp read_scalar(:int, data, at), do: read_i32(data, at)
-  defp read_scalar(:uint, data, at), do: read_u32(data, at)
-  defp read_scalar(:float, data, at), do: read_f32(data, at)
-  defp read_scalar(:long, data, at), do: read_i64(data, at)
-  defp read_scalar(:ulong, data, at), do: read_u64(data, at)
-  defp read_scalar(:double, data, at), do: read_f64(data, at)
-  defp read_scalar(type, _, _), do: throw({:error, {:unknown_type, type}})
+  alias Flatbuffers.Buffer
+  alias Flatbuffers.Cursor
 
   # complex types
 
-  def read({:string, _options}, vtable_pointer, data, _) do
-    string_offset = read_u32(data, vtable_pointer)
-    string_pointer = vtable_pointer + string_offset
+  def read({:bool, _}, c, _), do: Cursor.get_i8(c) != 0
+  def read({:byte, _}, c, _), do: Cursor.get_i8(c)
+  def read({:ubyte, _}, c, _), do: Cursor.get_u8(c)
+  def read({:short, _}, c, _), do: Cursor.get_i16(c)
+  def read({:ushort, _}, c, _), do: Cursor.get_u16(c)
+  def read({:int, _}, c, _), do: Cursor.get_i32(c)
+  def read({:uint, _}, c, _), do: Cursor.get_u32(c)
+  def read({:long, _}, c, _), do: Cursor.get_i64(c)
+  def read({:ulong, _}, c, _), do: Cursor.get_u64(c)
+  def read({:float, _}, c, _), do: Cursor.get_f32(c)
+  def read({:double, _}, c, _), do: Cursor.get_f64(c)
 
-    string_length = read_u32(data, string_pointer)
-    read_from_data_buffer(data, string_pointer + 4, string_length)
+  def read({:string, _options}, c, _) do
+    Cursor.get_bytes(
+      Cursor.skip(c, 4),
+      Cursor.get_u32(c)
+    )
+  end
+
+  def read({:vector, %{type: type}}, c, schema) do
+    read_vector_elements(
+      type,
+      Cursor.skip(c, 4),
+      Cursor.get_u32(c),
+      Utils.sizeof(type, schema),
+      schema
+    )
+  end
+
+  def read({:enum, %{name: enum_name}}, c, {entities, _options} = schema) do
+    {:enum, %{members: members, type: type}} = Map.get(entities, enum_name)
+    index = read(type, c, schema)
+
+    case Map.get(members, index) do
+      nil -> throw({:error, {:not_in_enum, index, members}})
+      value_atom -> value_atom
+    end
+  end
+
+  def read({:struct, %{name: struct_name}}, c, {entities, _} = schema) do
+    {:struct, %{members: members}} = Map.get(entities, struct_name)
+
+    {struct, _offset} =
+      members
+      |> Enum.reduce({%{}, 0}, fn {name, type}, {acc, offset} ->
+        value = read({type, %{}}, Cursor.skip(c, offset), schema)
+        {Map.put(acc, name, value), offset + Utils.scalar_size(type)}
+      end)
+
+    struct
+  end
+
+  defp read_vector_elements(_, _, 0, _, _), do: []
+
+  defp read_vector_elements(type, c, count, size, schema) do
+    [
+      read(type, c, schema)
+      | read_vector_elements(type, Cursor.skip(c, size), count - 1, size, schema)
+    ]
+  end
+
+  ########################
+
+  def read(type, %Cursor{buffer: buffer, offset: offset}, schema),
+    do: read(type, offset, buffer, schema)
+
+  def read({:string, _options}, vtable_pointer, data, _) do
+    c = Buffer.cursor(data, vtable_pointer) |> Cursor.jump_u32()
+
+    Cursor.get_bytes(
+      Cursor.skip(c, 4),
+      Cursor.get_u32(c)
+    )
   end
 
   def read({:vector, %{type: type}}, vtable_pointer, data, schema) do
-    vector_offset = read_u32(data, vtable_pointer)
-    vector_pointer = vtable_pointer + vector_offset
+    c = Buffer.cursor(data, vtable_pointer) |> Cursor.jump_u32()
 
-    vector_count = read_u32(data, vector_pointer)
-    read_vector_elements(type, vector_pointer + 4, vector_count, data, schema)
+    read_vector_elements(
+      type,
+      Cursor.skip(c, 4),
+      Cursor.get_u32(c),
+      Utils.sizeof(type, schema),
+      schema
+    )
   end
 
   def read({:enum, %{name: enum_name}}, vtable_pointer, data, {entities, _options} = schema) do
@@ -68,17 +106,18 @@ defmodule Eflatbuffers.Reader do
   def read({:table, %{name: table_name}}, table_pointer_pointer, data, {entities, _} = schema) do
     {:table, %{fields: fields}} = Map.get(entities, table_name)
 
-    table_offset = read_i32(data, table_pointer_pointer)
+    table_offset = Buffer.cursor(data, table_pointer_pointer) |> Cursor.get_i32()
     table_pointer = table_pointer_pointer + table_offset
 
-    vtable_offset = read_i32(data, table_pointer)
+    vtable_offset = Buffer.cursor(data, table_pointer) |> Cursor.get_i32()
     vtable_pointer = table_pointer - vtable_offset
 
-    vtable_length = read_i16(data, vtable_pointer)
+    vtable_length = Buffer.cursor(data, vtable_pointer) |> Cursor.get_i16()
     vtable_fields_pointer = vtable_pointer + 4
     vtable_fields_length = vtable_length - 4
+    IO.inspect(vtable_fields_length)
 
-    vtable = read_from_data_buffer(data, vtable_fields_pointer, vtable_fields_length)
+    vtable = Buffer.cursor(data, vtable_fields_pointer) |> Cursor.get_bytes(vtable_fields_length)
 
     read_table_fields(fields, vtable, table_pointer, data, schema)
   end
@@ -96,19 +135,19 @@ defmodule Eflatbuffers.Reader do
     struct
   end
 
-  def read({type, _}, at, data, _), do: read_scalar(type, data, at)
+  def read({:bool, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_i8() != 0
+  def read({:byte, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_i8()
+  def read({:ubyte, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_u8()
+  def read({:short, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_i16()
+  def read({:ushort, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_u16()
+  def read({:int, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_i32()
+  def read({:uint, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_u32()
+  def read({:long, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_i64()
+  def read({:ulong, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_u64()
+  def read({:float, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_f32()
+  def read({:double, _}, at, data, _), do: Buffer.cursor(data, at) |> Cursor.get_f64()
 
-  def read_vector_elements(_, _, 0, _, _), do: []
-
-  def read_vector_elements(type, vector_pointer, vector_count, data, schema) do
-    value = read(type, vector_pointer, data, schema)
-    offset = Utils.sizeof(type, schema)
-    [value | read_vector_elements(type, vector_pointer + offset, vector_count - 1, data, schema)]
-  end
-
-  # this is a utility that just reads data_size bytes from data after data_pointer
-  def read_from_data_buffer(data, data_pointer, data_size),
-    do: binary_part(data, data_pointer, data_size)
+  def read(type, _, _, _), do: throw({:error, {:unknown_type, type}})
 
   def read_table_fields(fields, vtable, data_pointer, data, schema),
     do: %{} |> read_table_row(fields, vtable, data_pointer, data, schema)
@@ -130,7 +169,7 @@ defmodule Eflatbuffers.Reader do
          {tables, _options} = schema
        ) do
     # for a union byte field named $fieldname$_type is prefixed
-    union_index = read_u8(data, data_pointer + data_offset)
+    union_index = Buffer.cursor(data, data_pointer + data_offset) |> Cursor.get_u8()
 
     case union_index do
       0 ->

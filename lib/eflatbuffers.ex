@@ -58,7 +58,7 @@ defmodule Eflatbuffers do
 
   defp match_ids(<<_::binary-size(4), data_id::binary-size(4), _::binary>>, id) do
     cond do
-      is_nil(id) and data_id == <<0, 0, 0, 0>> -> :ok
+      is_nil(id) -> :ok
       id == data_id -> :ok
       true -> {:error, {:id_mismatch, %{data: data_id, schema: id}}}
     end
