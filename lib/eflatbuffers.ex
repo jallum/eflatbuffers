@@ -3,6 +3,7 @@ defmodule Eflatbuffers do
   alias Eflatbuffers.Reader
   alias Eflatbuffers.Schema
   alias Eflatbuffers.Writer
+  alias Flatbuffers.Buffer
 
   def parse_schema(schema_str), do: Schema.from_string(schema_str)
 
@@ -45,7 +46,7 @@ defmodule Eflatbuffers do
   def read(data, {_, opts} = schema) do
     with :ok <- match_ids(data, Keyword.get(opts, :file_identifier)),
          root_type <- Keyword.get(opts, :root_type) do
-      {:ok, Reader.read(root_type, 0, data, schema)}
+      {:ok, Reader.read(root_type, Buffer.cursor(data, 0), schema)}
     end
   end
 

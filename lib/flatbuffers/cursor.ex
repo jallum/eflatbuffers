@@ -9,6 +9,7 @@ defmodule Flatbuffers.Cursor do
 
   def skip(c, offset), do: %__MODULE__{c | offset: c.offset + offset}
 
+  def rjump_i32(c), do: %__MODULE__{c | offset: c.offset - get_i32(c)}
   def jump_i32(c), do: %__MODULE__{c | offset: c.offset + get_i32(c)}
   def jump_u32(c), do: %__MODULE__{c | offset: c.offset + get_u32(c)}
 
