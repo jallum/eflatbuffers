@@ -125,7 +125,7 @@ defmodule Eflatbuffers.Schema do
     do: {apply_namespace(name, namespace), default_value}
 
   defp apply_namespace(name, namespace) when is_binary(name) do
-    if String.starts_with?(name, namespace) do
+    if String.contains?(name, ".") do
       name
     else
       "#{namespace}.#{name}"
