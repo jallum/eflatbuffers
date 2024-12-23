@@ -1,5 +1,5 @@
-defimpl Flatbuffers.Buffer, for: BitString do
-  alias Flatbuffers.Cursor
+defimpl Flatbuffer.Buffer, for: BitString do
+  alias Flatbuffer.Cursor
 
   @impl true
   def size(b), do: byte_size(b)

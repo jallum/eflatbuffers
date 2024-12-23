@@ -1,5 +1,5 @@
-defprotocol Flatbuffers.Buffer do
-  alias Flatbuffers.Cursor
+defprotocol Flatbuffer.Buffer do
+  alias Flatbuffer.Cursor
 
   @type t :: term()
 

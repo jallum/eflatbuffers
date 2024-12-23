@@ -1,9 +1,8 @@
 defmodule Eflatbuffers do
   alias Eflatbuffers.RandomAccess
-  alias Eflatbuffers.Reader
-  alias Eflatbuffers.Schema
+  alias Flatbuffer.Schema
   alias Eflatbuffers.Writer
-  alias Flatbuffers.Buffer
+  alias Flatbuffer.Buffer
 
   def parse_schema(schema_str), do: Schema.from_string(schema_str)
 
@@ -43,41 +42,8 @@ defmodule Eflatbuffers do
     error -> error
   end
 
-  def read(data, {_, opts} = schema) do
-    with :ok <- match_ids(data, Keyword.get(opts, :file_identifier)),
-         root_type <- Keyword.get(opts, :root_type) do
-      {:ok, Reader.read(root_type, Buffer.cursor(data, 0), schema)}
-    end
-  end
+  def get(data, path, schema), do: {:ok, get!(data, path, schema)}
 
-  def read!(data, schema) do
-    case read(data, schema) do
-      {:ok, result} -> result
-      {:error, reason} -> throw(reason)
-    end
-  end
-
-  defp match_ids(<<_::binary-size(4), data_id::binary-size(4), _::binary>>, id) do
-    cond do
-      is_nil(id) -> :ok
-      id == data_id -> :ok
-      true -> {:error, {:id_mismatch, %{data: data_id, schema: id}}}
-    end
-  end
-
-  def get(data, path, schema) do
-    {:ok, get!(data, path, schema)}
-  rescue
-    error -> {:error, error}
-  catch
-    error -> error
-  end
-
-  def get!(data, path, schema) when is_binary(schema),
-    do: get!(data, path, parse_schema!(schema))
-
-  def get!(data, path, {_tables, options} = schema) do
-    root_type = Keyword.fetch!(options, :root_type)
-    RandomAccess.get(path, root_type, 0, data, schema)
-  end
+  def get!(data, path, schema),
+    do: RandomAccess.get(path, schema.root_type, Buffer.cursor(data, 0), schema)
 end

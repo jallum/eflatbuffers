@@ -1,5 +1,5 @@
-defmodule Flatbuffers.Cursor do
-  alias Flatbuffers.Buffer
+defmodule Flatbuffer.Cursor do
+  alias Flatbuffer.Buffer
 
   @type t :: %__MODULE__{
           buffer: Buffer.t(),

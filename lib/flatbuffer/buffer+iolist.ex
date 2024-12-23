@@ -1,5 +1,5 @@
-defimpl Flatbuffers.Buffer, for: List do
-  alias Flatbuffers.Cursor
+defimpl Flatbuffer.Buffer, for: List do
+  alias Flatbuffer.Cursor
 
   @impl true
   def size(b), do: :erlang.iolist_size(b)

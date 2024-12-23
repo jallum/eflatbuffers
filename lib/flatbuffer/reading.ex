@@ -1,6 +1,17 @@
-defmodule Eflatbuffers.Reader do
+defmodule Flatbuffer.Reading do
   alias Eflatbuffers.Utils
-  alias Flatbuffers.Cursor
+  alias Flatbuffer.Cursor
+
+  @spec check_buffer_id(Cursor.t(), binary() | nil) ::
+          :ok | {:error, {:id_mismatch, %{data: binary(), schema: binary()}}}
+  def check_buffer_id(_cursor, nil), do: :ok
+
+  def check_buffer_id(cursor, id) do
+    case Cursor.get_bytes(cursor, 4) do
+      ^id -> :ok
+      data_id -> {:error, {:id_mismatch, %{data: data_id, schema: id}}}
+    end
+  end
 
   def read({:bool, _}, c, _), do: Cursor.get_i8(c) != 0
   def read({:byte, _}, c, _), do: Cursor.get_i8(c)
@@ -19,13 +30,13 @@ defmodule Eflatbuffers.Reader do
     Cursor.get_bytes(Cursor.skip(c, 4), Cursor.get_u32(c))
   end
 
-  def read({:vector, %{type: type}}, c, schema) do
+  def read({:vector, type}, c, schema) do
     c = Cursor.jump_u32(c)
     read_vector(type, Cursor.get_u32(c), Cursor.skip(c, 4), Utils.sizeof(type, schema), schema)
   end
 
-  def read({:enum, %{name: enum_name}}, c, {entities, _options} = schema) do
-    {:enum, %{members: members, type: type}} = Map.get(entities, enum_name)
+  def read({:enum, %{name: enum_name}}, c, schema) do
+    {:enum, %{members: members, type: type}} = Map.get(schema.entities, enum_name)
     index = read(type, c, schema)
 
     case Map.get(members, index) do
@@ -34,8 +45,8 @@ defmodule Eflatbuffers.Reader do
     end
   end
 
-  def read({:struct, %{name: struct_name}}, c, {entities, _} = schema) do
-    {:struct, %{members: members}} = Map.get(entities, struct_name)
+  def read({:struct, %{name: struct_name}}, c, schema) do
+    {:struct, %{members: members}} = Map.get(schema.entities, struct_name)
 
     {struct, _offset} =
       members
@@ -47,8 +58,8 @@ defmodule Eflatbuffers.Reader do
     struct
   end
 
-  def read({:table, %{name: table_name}}, c, {entities, _} = schema) do
-    {:table, %{fields: fields}} = Map.get(entities, table_name)
+  def read({:table, %{name: table_name}}, c, schema) do
+    {:table, %{fields: fields}} = Map.get(schema.entities, table_name)
 
     table = Cursor.jump_i32(c)
     vtable = Cursor.rjump_i32(table)
@@ -86,7 +97,7 @@ defmodule Eflatbuffers.Reader do
          [{name, {:union, %{name: union_name}}} | fields],
          vtable,
          table,
-         {entities, _options} = schema
+         schema
        ) do
     data_offset = Cursor.get_i16(vtable)
     index = Cursor.get_u8(table, data_offset)
@@ -98,7 +109,7 @@ defmodule Eflatbuffers.Reader do
       else
         # we have a table set so we get the type and expect it as the next
         # record in the vtable
-        {:union, %{members: members}} = Map.get(entities, union_name)
+        {:union, %{members: members}} = Map.get(schema.entities, union_name)
 
         table_name = Map.get(members, index - 1)
         type_key = :"#{name}_type"

@@ -1,26 +1,97 @@
-defmodule Eflatbuffers.Schema do
+defmodule Flatbuffer.Schema do
+  @type t :: %__MODULE__{
+          entities: %{type_name() => type_def()},
+          id: binary() | nil,
+          root_type: type_ref()
+        }
+  defstruct entities: %{}, root_type: nil, id: nil
+
+  @type type_name :: String.t()
+
+  @type type_ref ::
+          {:table, %{name: type_name()}}
+          | {:struct, %{name: type_name()}}
+          | {:enum, %{name: type_name()}}
+          | {:union, %{name: type_name()}}
+          | {:vector, type_ref()}
+          | {:bool, %{default: boolean()}}
+          | {:byte, %{default: integer()}}
+          | {:ubyte, %{default: integer()}}
+          | {:short, %{default: integer()}}
+          | {:ushort, %{default: integer()}}
+          | {:int, %{default: integer()}}
+          | {:uint, %{default: integer()}}
+          | {:long, %{default: integer()}}
+          | {:ulong, %{default: integer()}}
+          | {:float, %{default: float()}}
+          | {:double, %{default: float()}}
+          | {:string, %{default: String.t()}}
+
+  @type type_def ::
+          table_def()
+          | struct_def()
+          | union_def()
+          | enum_def()
+
+  @type field_name :: atom()
+
+  @type table_def ::
+          {:table,
+           %{
+             fields: [{field_name(), type_ref()}],
+             indices: %{field_name() => {integer(), type_ref()}}
+           }}
+
+  @type struct_def :: {:struct, %{members: [{field_name(), type_def()}]}}
+
+  @type union_def ::
+          {:union,
+           %{
+             members: %{
+               type_name() => integer(),
+               integer() => type_name()
+             }
+           }}
+
+  @type enum_name :: atom()
+  @type enum_def :: {:enum, %{members: %{enum_name() => integer(), integer() => enum_name()}}}
+
   @type resolver_fn :: (filename :: String.t() -> String.t())
 
-  @type t :: {entities :: %{}, options :: keyword()}
+  @type from_errors ::
+          {:error, {:no_resolver, file_name :: String.t()}}
+          | {:error, :root_type_is_undefined}
+          | {:error, {:root_type_not_found, type_name :: String.t()}}
+          | {:error, {:root_type_is_not_a_table, type_name :: String.t()}}
+          | {:error, {:entity_not_found, type_name :: String.t()}}
 
   @spec from_file(file_name :: String.t(), opts :: [resolver: resolver_fn()]) ::
-          {:ok, t()} | {:error, term()}
+          {:ok, t()} | from_errors()
   def from_file(file_name, opts \\ []) do
     with resolver_fn <- opts[:resolver] || (&File.read/1),
          true <- is_function(resolver_fn, 1) || {:error, {:no_resolver, file_name}},
          {:ok, file_contents} <- resolver_fn.(file_name),
-         {:ok, {entities, directives}} <- chain_load(file_name, file_contents, resolver_fn) do
-      {:ok, {entities |> decorate(), directives}}
+         {:ok, {entities, directives}} <- chain_load(file_name, file_contents, resolver_fn),
+         {:ok, entities} <- decorate(entities) do
+      {:ok, new(entities, directives)}
     end
   end
 
   @spec from_string(string :: String.t(), opts :: [resolver: resolver_fn()]) ::
-          {:ok, t()} | {:error, term()}
+          {:ok, t()} | from_errors()
   def from_string(string, opts \\ []) do
-    case chain_load(:string, string, opts[:resolver]) do
-      {:ok, entities} -> {:ok, {entities, []}}
-      error -> error
+    with {:ok, {entities, directives}} <- chain_load(:string, string, opts[:resolver]),
+         {:ok, entities} <- decorate(entities) do
+      {:ok, new(entities, directives)}
     end
+  end
+
+  defp new(entities, directives) do
+    %__MODULE__{
+      entities: entities,
+      root_type: directives[:root_type],
+      id: directives[:file_identifier]
+    }
   end
 
   defp chain_load(source, file_contents, resolver_fn, loaded \\ []) do
@@ -28,9 +99,9 @@ defmodule Eflatbuffers.Schema do
          {:ok, {entities, directives}} <- :schema_parser.parse(tokens),
          file_id <- directives[:file_identifier],
          namespace <- directives[:namespace],
-         root_type <- directives[:root_type],
+         root_type_name <- directives[:root_type],
          entities <- apply_namespace(entities, namespace),
-         {:ok, root_type} <- determine_root_type(entities, root_type, namespace) do
+         {:ok, root_type} <- determine_root_type(entities, root_type_name, namespace) do
       directives
       |> find_include_files()
       |> Enum.reduce_while(%{}, fn
@@ -67,8 +138,8 @@ defmodule Eflatbuffers.Schema do
   @spec determine_root_type(entities :: %{}, type_name :: String.t(), namespace :: String.t()) ::
           {:ok, {:table, %{name: String.t()}}}
           | {:error, :root_type_is_undefined}
-          | {:root_type_not_found, type_name :: String.t()}
-          | {:root_type_is_not_a_table, type_name :: String.t()}
+          | {:error, {:root_type_not_found, type_name :: String.t()}}
+          | {:error, {:root_type_is_not_a_table, type_name :: String.t()}}
   defp determine_root_type(_, nil, _), do: {:error, :root_type_is_undefined}
 
   defp determine_root_type(entities, type_name, namespace) do
@@ -135,49 +206,53 @@ defmodule Eflatbuffers.Schema do
   # this preprocesses the schema in order to keep the read/write code as simple
   # as possible correlate tables with names and define defaults explicitly
   def decorate(entities) do
-    Enum.reduce(
-      entities,
-      %{},
-      fn
-        # for a tables we transform the types to explicitly signify vectors,
-        # tables, and enums
-        {key, {:table, fields}}, acc ->
-          Map.put(
-            acc,
-            key,
-            {:table, table_options(fields, entities)}
-          )
+    {:ok,
+     Enum.reduce(
+       entities,
+       %{},
+       fn
+         # for a tables we transform the types to explicitly signify vectors,
+         # tables, and enums
+         {key, {:table, fields}}, acc ->
+           Map.put(
+             acc,
+             key,
+             {:table, table_options(fields, entities)}
+           )
 
-        # for enums we change the list of options into a map for faster lookup
-        # when writing and reading
-        {key, {{:enum, type}, fields}}, acc ->
-          hash =
-            Enum.reduce(
-              Enum.with_index(fields),
-              %{},
-              fn {field, index}, hash_acc ->
-                Map.put(hash_acc, field, index) |> Map.put(index, field)
-              end
-            )
+         # for enums we change the list of options into a map for faster lookup
+         # when writing and reading
+         {key, {{:enum, type}, fields}}, acc ->
+           hash =
+             Enum.reduce(
+               Enum.with_index(fields),
+               %{},
+               fn {field, index}, hash_acc ->
+                 Map.put(hash_acc, field, index) |> Map.put(index, field)
+               end
+             )
 
-          Map.put(acc, key, {:enum, %{type: {type, %{default: 0}}, members: hash}})
+           Map.put(acc, key, {:enum, %{type: {type, %{default: 0}}, members: hash}})
 
-        {key, {:union, fields}}, acc ->
-          hash =
-            Enum.reduce(
-              Enum.with_index(fields),
-              %{},
-              fn {field, index}, hash_acc ->
-                Map.put(hash_acc, field, index) |> Map.put(index, field)
-              end
-            )
+         {key, {:union, fields}}, acc ->
+           hash =
+             Enum.reduce(
+               Enum.with_index(fields),
+               %{},
+               fn {field, index}, hash_acc ->
+                 Map.put(hash_acc, field, index) |> Map.put(index, field)
+               end
+             )
 
-          Map.put(acc, key, {:union, %{members: hash}})
+           Map.put(acc, key, {:union, %{members: hash}})
 
-        {key, {:struct, fields}}, acc ->
-          Map.put(acc, key, {:struct, %{members: fields}})
-      end
-    )
+         {key, {:struct, fields}}, acc ->
+           Map.put(acc, key, {:struct, %{members: fields}})
+       end
+     )}
+  catch
+    {:error, {:entity_not_found, _type_name}} = error ->
+      error
   end
 
   def table_options(fields, entities) do
@@ -217,7 +292,7 @@ defmodule Eflatbuffers.Schema do
   end
 
   def decorate_field({:vector, type}, entities),
-    do: {:vector, %{type: decorate_field(type, entities)}}
+    do: {:vector, decorate_field(type, entities)}
 
   def decorate_field(field_value, entities) do
     if is_referenced?(field_value) do
@@ -227,32 +302,32 @@ defmodule Eflatbuffers.Schema do
     end
   end
 
-  def decorate_referenced_field({field_value, default_value}, entities) do
-    case Map.get(entities, field_value) do
+  def decorate_referenced_field({type_name, default_value}, entities) do
+    case Map.get(entities, type_name) do
       nil ->
-        throw({:error, {:entity_not_found, field_value}})
+        throw({:error, {:entity_not_found, type_name}})
 
       {{:enum, _}, _} ->
-        {:enum, %{name: field_value, default: default_value}}
+        {:enum, %{name: type_name, default: default_value}}
     end
   end
 
-  def decorate_referenced_field(field_value, entities) do
-    case Map.get(entities, field_value) do
+  def decorate_referenced_field(type_name, entities) do
+    case Map.get(entities, type_name) do
       nil ->
-        throw({:error, {:entity_not_found, field_value}})
+        throw({:error, {:entity_not_found, type_name}})
 
       {:table, _} ->
-        {:table, %{name: field_value}}
+        {:table, %{name: type_name}}
 
       {{:enum, _}, _} ->
-        {:enum, %{name: field_value}}
+        {:enum, %{name: type_name}}
 
       {:union, _} ->
-        {:union, %{name: field_value}}
+        {:union, %{name: type_name}}
 
       {:struct, _} ->
-        {:struct, %{name: field_value}}
+        {:struct, %{name: type_name}}
     end
   end
 

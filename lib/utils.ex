@@ -27,13 +27,13 @@ defmodule Eflatbuffers.Utils do
 
   def extract_scalar_type(type, _), do: type
 
-  def sizeof({:enum, %{name: enum_name}}, {entities, _} = schema) do
-    {:enum, %{type: type}} = Map.get(entities, enum_name)
+  def sizeof({:enum, %{name: enum_name}}, schema) do
+    {:enum, %{type: type}} = Map.get(schema.entities, enum_name)
     sizeof(type, schema)
   end
 
-  def sizeof({:struct, %{name: struct_name}}, {entities, _} = schema) do
-    {:struct, %{members: members}} = Map.get(entities, struct_name)
+  def sizeof({:struct, %{name: struct_name}}, schema) do
+    {:struct, %{members: members}} = Map.get(schema.entities, struct_name)
     Enum.reduce(members, 0, fn {_, type}, acc -> acc + sizeof(type, schema) end)
   end
 
