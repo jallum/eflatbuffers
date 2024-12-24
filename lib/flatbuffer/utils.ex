@@ -40,6 +40,7 @@ defmodule Flatbuffer.Utils do
   def sizeof({:table, _}, _), do: 4
   def sizeof({:vector, _}, _), do: 4
   def sizeof({:union, _}, _), do: 4
+  def sizeof({:string, _}, _), do: 4
 
   def sizeof(type, _), do: scalar_size(type)
 end

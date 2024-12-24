@@ -64,8 +64,8 @@ defmodule Flatbuffer.Writer do
 
   # complex types
 
-  def write({:struct, %{name: struct_name}}, map, _, {entities, _} = schema) when is_map(map) do
-    {:struct, %{members: members}} = Map.get(entities, struct_name)
+  def write({:struct, %{name: struct_name}}, map, _, schema) when is_map(map) do
+    {:struct, %{members: members}} = Map.get(schema.entities, struct_name)
 
     members
     |> Enum.map(fn {field_name, field_type} ->
@@ -78,7 +78,7 @@ defmodule Flatbuffer.Writer do
     <<byte_size(string)::unsigned-little-size(32)>> <> string
   end
 
-  def write({:vector, %{type: {type, type_options}}}, values, path, schema)
+  def write({:vector, {type, type_options}}, values, path, schema)
       when is_list(values) do
     vector_length = length(values)
     # we are putting the indices as [i] as a type
@@ -100,9 +100,9 @@ defmodule Flatbuffer.Writer do
     [<<vector_length::little-size(32)>>, data_buffer_and_data(index_types, values, path, schema)]
   end
 
-  def write({:enum, %{name: enum_name} = options}, value, path, {tables, _} = schema)
+  def write({:enum, %{name: enum_name} = options}, value, path, schema)
       when is_atom(value) do
-    {:enum, %{members: members, type: {type, type_options}}} = Map.get(tables, enum_name)
+    {:enum, %{members: members, type: {type, type_options}}} = Map.get(schema.entities, enum_name)
 
     # if we got handed some defaults from outside,
     # we put them in here
@@ -116,9 +116,9 @@ defmodule Flatbuffer.Writer do
   end
 
   # write a complete table
-  def write({:table, %{name: table_name}}, map, path, {tables, _options} = schema)
+  def write({:table, %{name: table_name}}, map, path, schema)
       when is_map(map) do
-    {:table, %{fields: fields}} = Map.get(tables, table_name)
+    {:table, %{fields: fields}} = Map.get(schema.entities, table_name)
 
     {names_types, values} =
       Enum.reduce(
@@ -126,7 +126,7 @@ defmodule Flatbuffer.Writer do
         {[], []},
         fn
           {name, {:union, %{name: union_name}}}, {type_acc, value_acc} ->
-            {:union, %{members: members}} = Map.get(tables, union_name)
+            {:union, %{members: members}} = Map.get(schema.entities, union_name)
             type_key = :"#{name}_type"
 
             case Map.get(map, type_key) do
@@ -164,7 +164,7 @@ defmodule Flatbuffer.Writer do
   end
 
   # fail if nothing matches
-  def write({_type, _options} = type, data, path, _) do
+  def write({type, _}, data, path, _) do
     throw({:error, {:wrong_type, type, data, Enum.reverse(path)}})
   end
 

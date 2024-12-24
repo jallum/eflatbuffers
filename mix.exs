@@ -3,10 +3,10 @@ defmodule Eflatbuffers.MixProject do
 
   def project do
     [
-      app: :eflatbuffers,
+      app: :flatbuffer,
       version: "0.1.0",
-      description: "Elixir/Erlang flatbuffers implementation",
-      elixir: "~> 1.15",
+      description: "Elixir Flatbuffer implementation",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:yecc, :leex] ++ Mix.compilers(),
@@ -14,11 +14,9 @@ defmodule Eflatbuffers.MixProject do
     ]
   end
 
-  # Configuration for the OTP application
-  #
-  # Type "mix help compile.app" for more information
+  # Run "mix help compile.app" to learn about applications.
   def application do
-    [applications: [:logger]]
+    [extra_applications: [:logger]]
   end
 
   # Dependencies can be Hex packages:
@@ -37,7 +35,7 @@ defmodule Eflatbuffers.MixProject do
        branch: "master",
        only: :test,
        override: true},
-      {:poison, "~> 6.0"},
+      {:poison, "~> 6.0", only: :test},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end

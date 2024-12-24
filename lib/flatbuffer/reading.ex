@@ -7,7 +7,7 @@ defmodule Flatbuffer.Reading do
   def check_buffer_id(_cursor, nil), do: :ok
 
   def check_buffer_id(cursor, id) do
-    case Cursor.get_bytes(cursor, 4) do
+    case cursor |> Cursor.skip(4) |> Cursor.get_bytes(4) do
       ^id -> :ok
       data_id -> {:error, {:id_mismatch, %{data: data_id, schema: id}}}
     end
