@@ -1,5 +1,5 @@
 defmodule Flatbuffer.Reading do
-  alias Eflatbuffers.Utils
+  alias Flatbuffer.Utils
   alias Flatbuffer.Cursor
 
   @spec check_buffer_id(Cursor.t(), binary() | nil) ::

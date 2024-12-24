@@ -1,5 +1,5 @@
-defmodule Eflatbuffers.Writer do
-  alias Eflatbuffers.Utils
+defmodule Flatbuffer.Writer do
+  alias Flatbuffer.Utils
 
   def to_i8(i8), do: <<i8::signed-8>>
   def to_u8(u8), do: <<u8::unsigned-8>>

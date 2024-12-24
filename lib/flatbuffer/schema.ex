@@ -95,8 +95,9 @@ defmodule Flatbuffer.Schema do
   end
 
   defp chain_load(source, file_contents, resolver_fn, loaded \\ []) do
-    with {:ok, tokens, _} <- file_contents |> String.to_charlist() |> :schema_lexer.string(),
-         {:ok, {entities, directives}} <- :schema_parser.parse(tokens),
+    with {:ok, tokens, _} <-
+           file_contents |> String.to_charlist() |> :flatbuffer_schema_lexer.string(),
+         {:ok, {entities, directives}} <- :flatbuffer_schema_parser.parse(tokens),
          file_id <- directives[:file_identifier],
          namespace <- directives[:namespace],
          root_type_name <- directives[:root_type],
