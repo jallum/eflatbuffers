@@ -37,7 +37,7 @@ defmodule Flatbuffer.Schema.StructTest do
       """
 
       assert {:ok,
-              %Flatbuffer.Schema{
+              %Schema{
                 entities: %{
                   ^expected_struct_name =>
                     {:struct,

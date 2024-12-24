@@ -22,7 +22,7 @@ defmodule Flatbuffer.Schema.FloatTypesTest do
 
       assert {
                :ok,
-               %Flatbuffer.Schema{
+               %Schema{
                  entities: %{
                    ^expected_table_name =>
                      {:table,
@@ -52,7 +52,7 @@ defmodule Flatbuffer.Schema.FloatTypesTest do
 
       assert {
                :ok,
-               %Flatbuffer.Schema{
+               %Schema{
                  entities: %{
                    ^expected_table_name =>
                      {:table,

@@ -17,7 +17,7 @@ defmodule Flatbuffer.Schema.NamespaceTest do
       """
 
       assert {:ok,
-              %Flatbuffer.Schema{
+              %Schema{
                 entities: %{^expected_full_table_name => {:table, %{fields: [], indices: %{}}}},
                 root_type: {:table, %{name: ^expected_full_table_name}},
                 id: nil
@@ -37,7 +37,7 @@ defmodule Flatbuffer.Schema.NamespaceTest do
     """
 
     assert {:ok,
-            %Flatbuffer.Schema{
+            %Schema{
               entities: %{^expected_full_table_name => {:table, %{fields: [], indices: %{}}}},
               root_type: {:table, %{name: ^expected_full_table_name}},
               id: nil
@@ -58,7 +58,7 @@ defmodule Flatbuffer.Schema.NamespaceTest do
     """
 
     assert {:ok,
-            %Flatbuffer.Schema{
+            %Schema{
               entities: %{^expected_full_table_name => {:table, %{fields: [], indices: %{}}}},
               root_type: {:table, %{name: ^expected_full_table_name}},
               id: nil

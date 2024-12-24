@@ -46,7 +46,7 @@ defmodule Flatbuffer.Schema.EnumTypesTest do
       """
 
       assert {:ok,
-              %Flatbuffer.Schema{
+              %Schema{
                 entities: %{
                   ^expected_enum_name =>
                     {:enum,

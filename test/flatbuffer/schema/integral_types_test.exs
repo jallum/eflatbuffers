@@ -26,7 +26,7 @@ defmodule Flatbuffer.Schema.IntegralTypesTest do
 
       assert {
                :ok,
-               %Flatbuffer.Schema{
+               %Schema{
                  entities: %{
                    "Table" =>
                      {:table,
@@ -55,7 +55,7 @@ defmodule Flatbuffer.Schema.IntegralTypesTest do
 
       assert {
                :ok,
-               %Flatbuffer.Schema{
+               %Schema{
                  entities: %{
                    "Table" =>
                      {:table,
@@ -83,7 +83,7 @@ defmodule Flatbuffer.Schema.IntegralTypesTest do
       """
 
       assert {:ok,
-              %Flatbuffer.Schema{
+              %Schema{
                 entities: %{
                   "Table" =>
                     {:table,

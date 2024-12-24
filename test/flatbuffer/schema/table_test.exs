@@ -12,7 +12,7 @@ defmodule Flatbuffer.Schema.TableTest do
       """
 
       assert {:ok,
-              %Flatbuffer.Schema{
+              %Schema{
                 entities: %{"Table" => {:table, %{fields: [], indices: %{}}}},
                 root_type: {:table, %{name: "Table"}},
                 id: nil
@@ -33,7 +33,7 @@ defmodule Flatbuffer.Schema.TableTest do
 
       assert {
                :ok,
-               %Flatbuffer.Schema{
+               %Schema{
                  entities: %{
                    "Table" => {
                      :table,
@@ -105,7 +105,7 @@ defmodule Flatbuffer.Schema.TableTest do
 
       assert {
                :ok,
-               %Flatbuffer.Schema{
+               %Schema{
                  entities: %{
                    "NestedTable" => {:table, %{fields: [], indices: %{}}},
                    "Table" => {
