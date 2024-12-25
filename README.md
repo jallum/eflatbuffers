@@ -1,4 +1,5 @@
-[![Build Status](https://github.com/jallum/flatbuffer/workflows/CI/badge.svg)](https://github.com/jallum/flatbuffer/actions)
+[![Build Status](https://github.com/jallum/flatbuffer/workflows/CI/badge.svg)](https://github.com/jallum/flatbuffer/actions) [![Hex.pm](https://img.shields.io/hexpm/v/flatbuffer.svg)](https://hex.pm/packages/flatbuffer) [![Documentation](https://img.shields.io/badge/documentation-gray)](https://hexdocs.pm/flatbuffer/)
+
 
 ---
 
