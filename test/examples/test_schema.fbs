@@ -1,0 +1,7 @@
+namespace test;
+
+table Table {
+  foo: int;
+}
+
+root_type Table;

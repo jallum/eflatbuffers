@@ -65,4 +65,28 @@ defmodule Flatbuffer do
     |> to_iolist(schema)
     |> IO.iodata_to_binary()
   end
+
+  defmacro __using__(opts) do
+    resolver =
+      case Keyword.get(opts, :path) do
+        nil -> &File.read/1
+        path -> &File.read(Path.join(path, &1))
+      end
+
+    file = Keyword.get(opts, :file) || raise "Missing :file option"
+
+    with {:ok, schema} <- Schema.from_file(file, resolver: resolver) do
+      quote do
+        def schema, do: unquote(Macro.escape(schema))
+        def read(buffer), do: Flatbuffer.read(buffer, schema())
+        def read!(buffer), do: Flatbuffer.read!(buffer, schema())
+        def get(buffer, path), do: Flatbuffer.get(buffer, path, schema())
+        def get!(buffer, path), do: Flatbuffer.get!(buffer, path, schema())
+        def to_iolist(map), do: Flatbuffer.to_iolist(map, schema())
+        def to_binary(map), do: Flatbuffer.to_binary(map, schema())
+      end
+    else
+      {:error, reason} -> raise "Failed to load schema from file (#{file}): #{inspect(reason)}"
+    end
+  end
 end
