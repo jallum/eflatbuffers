@@ -15,7 +15,10 @@ defmodule Eflatbuffers.MixProject do
         "test.watch": :test
       ],
       source_url: "https://github.com/jallum/flatbuffer",
-      licenses: ["MIT"]
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/jallum/flatbuffer"
+      }
     ]
   end
 
