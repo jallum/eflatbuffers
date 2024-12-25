@@ -2,7 +2,7 @@ defmodule Flatbuffer.Schema.StructTest do
   use ExUnit.Case
   alias Flatbuffer.Schema
 
-  describe "from_string/1" do
+  describe "Schema.from_string/1" do
     test "it parses a struct" do
       expected_field_name1 = RandomIdentifier.generate()
       expected_field_name2 = RandomIdentifier.generate()

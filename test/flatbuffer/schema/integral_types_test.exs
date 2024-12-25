@@ -13,7 +13,7 @@ defmodule Flatbuffer.Schema.IntegralTypesTest do
 
   alias Flatbuffer.Schema
 
-  describe "from_string/1" do
+  describe "Schema.from_string/1" do
     test "when given a schema with a table containing an integral field it will return the correct result",
          %{type: type} do
       schema = """

@@ -2,7 +2,7 @@ defmodule Flatbuffer.Schema.TableTest do
   use ExUnit.Case
   alias Flatbuffer.Schema
 
-  describe "from_string/1" do
+  describe "Schema.from_string/1" do
     test "with a single table it will return the correct result" do
       schema = """
       table Table {

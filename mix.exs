@@ -6,7 +6,7 @@ defmodule Eflatbuffers.MixProject do
       app: :flatbuffer,
       version: "0.1.0",
       description: "Elixir Flatbuffer implementation",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:yecc, :leex] ++ Mix.compilers(),
@@ -14,7 +14,8 @@ defmodule Eflatbuffers.MixProject do
       preferred_cli_env: [
         "test.watch": :test
       ],
-      source_url: "https://github.com/jallum/flatbuffer"
+      source_url: "https://github.com/jallum/flatbuffer",
+      licenses: ["MIT"]
     ]
   end
 

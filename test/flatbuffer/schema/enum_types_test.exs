@@ -16,7 +16,7 @@ defmodule Flatbuffer.Schema.EnumTypesTest do
 
   alias Flatbuffer.Schema
 
-  describe "from_string/1" do
+  describe "Schema.from_string/1" do
     test "when given a schema with an enum it will return the correct result",
          %{type: type} do
       expected_enum_name = RandomIdentifier.generate()
