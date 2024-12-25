@@ -90,9 +90,9 @@ iex(6)> Flatbuffer.get!(color_scheme_fb, [:background, :green], schema)
 100
 ```
 
-## Comparing Flatbufer to flatc
+## Comparing Flatbuffer to flatc
 
-### features both in Flatbufer and flatc
+### features both in Flatbuffer and flatc
 
 * tables
 * scalars
