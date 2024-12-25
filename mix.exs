@@ -14,11 +14,13 @@ defmodule Eflatbuffers.MixProject do
       preferred_cli_env: [
         "test.watch": :test
       ],
-      source_url: "https://github.com/jallum/flatbuffer",
-      licenses: ["MIT"],
-      links: %{
-        "GitHub" => "https://github.com/jallum/flatbuffer"
-      }
+      package: [
+        source_url: "https://github.com/jallum/flatbuffer",
+        licenses: ["MIT"],
+        links: %{
+          "GitHub" => "https://github.com/jallum/flatbuffer"
+        }
+      ]
     ]
   end
 
