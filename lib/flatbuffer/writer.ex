@@ -1,4 +1,6 @@
 defmodule Flatbuffer.Writer do
+  @moduledoc false
+
   alias Flatbuffer.Utils
 
   def to_i8(i8), do: <<i8::signed-8>>

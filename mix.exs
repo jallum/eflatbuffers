@@ -13,7 +13,8 @@ defmodule Eflatbuffers.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       preferred_cli_env: [
         "test.watch": :test
-      ]
+      ],
+      source_url: "https://github.com/jallum/flatbuffer"
     ]
   end
 
@@ -33,12 +34,6 @@ defmodule Eflatbuffers.MixProject do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:flatbuffer_port,
-       git: "https://github.com/reimerei/elixir-flatbuffers",
-       branch: "master",
-       only: :test,
-       override: true},
-      {:poison, "~> 6.0", only: :test},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false}
     ]

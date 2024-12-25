@@ -1,4 +1,6 @@
 defmodule Flatbuffer.Utils do
+  @moduledoc false
+
   def scalar?({type, _options}), do: scalar?(type)
   def scalar?(:string), do: false
   def scalar?(:vector), do: false

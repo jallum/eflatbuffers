@@ -1,4 +1,6 @@
 defimpl Flatbuffer.Buffer, for: List do
+  @moduledoc false
+
   alias Flatbuffer.Cursor
 
   @impl true

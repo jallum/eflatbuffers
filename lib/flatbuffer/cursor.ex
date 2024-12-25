@@ -1,4 +1,6 @@
 defmodule Flatbuffer.Cursor do
+  @moduledoc false
+
   alias Flatbuffer.Buffer
 
   @type t :: %__MODULE__{

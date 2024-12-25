@@ -1,4 +1,6 @@
 defprotocol Flatbuffer.Buffer do
+  @moduledoc false
+
   alias Flatbuffer.Cursor
 
   @type t :: term()

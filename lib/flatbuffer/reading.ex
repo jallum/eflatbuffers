@@ -1,4 +1,6 @@
 defmodule Flatbuffer.Reading do
+  @moduledoc false
+
   alias Flatbuffer.Utils
   alias Flatbuffer.Cursor
 

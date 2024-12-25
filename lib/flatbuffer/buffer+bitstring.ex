@@ -1,4 +1,6 @@
 defimpl Flatbuffer.Buffer, for: BitString do
+  @moduledoc false
+
   alias Flatbuffer.Cursor
 
   @impl true

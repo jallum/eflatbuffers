@@ -1,4 +1,25 @@
 defmodule Flatbuffer.Schema do
+  @moduledoc """
+  Schema definition and parser for FlatBuffers.
+
+  Handles parsing and processing of FlatBuffer schema files (.fbs),
+  including type definitions, namespaces, and includes. Supports:
+
+  - Tables, structs, enums, and unions
+  - Basic types (bool, int, float, string, etc.)
+  - Vectors and references
+  - Schema includes and namespaces
+  - File identifiers
+
+  ## Example
+      {:ok, schema} = Schema.from_file("schema.fbs")
+      # or
+      {:ok, schema} = Schema.from_string(schema_string)
+
+      # Optionally, you can supply a resolver for includes
+      {:ok, schema} = Schema.from_file("schema.fbs", resolver: &File.read/1)
+  """
+
   @type t :: %__MODULE__{
           entities: %{type_name() => type_def()},
           id: binary() | nil,
@@ -65,6 +86,27 @@ defmodule Flatbuffer.Schema do
           | {:error, {:root_type_is_not_a_table, type_name :: String.t()}}
           | {:error, {:entity_not_found, type_name :: String.t()}}
 
+  @doc """
+  Reads and parses a FlatBuffer schema from a file.
+
+  ## Parameters
+
+    - `file_name` (String.t()): The path to the schema file.
+    - `opts` ([resolver: resolver_fn()]): Optional keyword list of options.
+      - `:resolver` (resolver_fn()): A function to resolve imports or includes within the schema.
+
+  ## Returns
+
+    - The parsed schema, or an error tuple if the schema could not be parsed.
+
+  ## Examples
+
+      iex> Flatbuffer.Schema.from_file("path/to/schema.fbs")
+      {:ok, schema}
+
+      iex> Flatbuffer.Schema.from_file("path/to/schema.fbs", resolver: &my_resolver/1)
+      {:ok, schema}
+  """
   @spec from_file(file_name :: String.t(), opts :: [resolver: resolver_fn()]) ::
           {:ok, t()} | from_errors()
   def from_file(file_name, opts \\ []) do
@@ -77,6 +119,29 @@ defmodule Flatbuffer.Schema do
     end
   end
 
+  @doc """
+  Parses a FlatBuffer schema from a string.
+
+  ## Parameters
+
+    - `string` (String.t()): The FlatBuffer schema as a string.
+    - `opts` ([resolver: resolver_fn()]): Optional keyword list of options.
+      - `:resolver` (resolver_fn()): A function used to resolve schema dependencies.
+
+  ## Returns
+
+  A parsed schema.
+
+  ## Examples
+    iex(1)> schema = \"""
+    ...(1)> table Table {
+    ...(1)>   field: int;
+    ...(1)> }
+    ...(1)>
+    ...(1)> root_type Table;
+    ...(1)> \"""
+    iex(2)> {:ok, parsed_schema} = Flatbuffer.Schema.from_string(schema)
+  """
   @spec from_string(string :: String.t(), opts :: [resolver: resolver_fn()]) ::
           {:ok, t()} | from_errors()
   def from_string(string, opts \\ []) do
