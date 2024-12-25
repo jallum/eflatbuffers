@@ -10,7 +10,10 @@ defmodule Eflatbuffers.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:yecc, :leex] ++ Mix.compilers(),
-      elixirc_paths: elixirc_paths(Mix.env())
+      elixirc_paths: elixirc_paths(Mix.env()),
+      preferred_cli_env: [
+        "test.watch": :test
+      ]
     ]
   end
 
@@ -36,7 +39,8 @@ defmodule Eflatbuffers.MixProject do
        only: :test,
        override: true},
       {:poison, "~> 6.0", only: :test},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
 
