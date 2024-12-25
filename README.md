@@ -83,7 +83,7 @@ iex(5)> Flatbuffer.get!(color_scheme_fb, [:background], schema)
 %{blue: 128, green: 100, red: 0}
 iex(6)> Flatbuffer.get!(color_scheme_fb, [:background, :green], schema)
 100
-```s
+```
 
 ## Comparing Flatbufer to flatc
 
