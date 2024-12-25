@@ -1,3 +1,7 @@
+[![Build Status](https://github.com/jallum/flatbuffer/workflows/CI/badge.svg)](https://github.com/jallum/flatbuffer/actions)
+
+---
+
 # Flatbuffer
 
 This is a [flatbuffers](https://google.github.io/flatbuffers/) implementation in Elixir.
@@ -92,7 +96,7 @@ iex(6)> Flatbuffer.get!(color_scheme_fb, [:background, :green], schema)
 * tables
 * scalars
 * strings
-* vectors
+* vflatbufferrs
 * structs
 * unions
 * enums
