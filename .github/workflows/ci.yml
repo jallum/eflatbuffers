@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit-test:
+    name: unit test
+    runs-on: ubuntu-20.04
+    env:
+      FORCE_COLOR: 1
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: "1.18.0"
+            otp: "27.1"
+            lint: lint
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+      - name: Restore deps and _build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.elixir }}-${{ matrix.otp }}-
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile deps
+        run: mix deps.compile
+      - name: Check unused dependencies
+        run: mix deps.unlock --check-unused
+        if: ${{ matrix.lint }}
+      - name: Compile lint
+        run: mix compile --warning-as-errors
+        if: ${{ matrix.lint }}
+      - name: Run tests
+        run: mix test
