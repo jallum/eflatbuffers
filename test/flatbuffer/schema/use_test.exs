@@ -38,7 +38,7 @@ defmodule Flatbuffer.Schema.UseTest do
         "0E00000000000000060008000400060000000C000000"
         |> Base.decode16!()
 
-      assert {:ok, 12} = TestSchema.get(binary_value, [:foo])
+      assert 12 = TestSchema.get(binary_value, [:foo])
     end
   end
 end

@@ -58,28 +58,49 @@ defmodule Flatbuffer do
   end
 
   @doc """
-  Retrieves a value from a path without decoding the entire buffer.
-  Returns {:ok, value} or {:error, :index_out_of_range}.
+  Gets the value for a specific key without decoding the entire buffer.
+
+  If the key (or path) is present in the buffer then its value value is
+  returned. Otherwise, `default` is returned.
+
+  If `default` is not provided, `nil` is used.
   """
-  @spec get(buffer :: iodata(), [atom() | integer()], Schema.t()) ::
-          {:ok, any()} | {:error, :index_out_of_range}
-  def get(buffer, path, schema) do
+  @spec get(buffer :: iodata(), [atom() | integer()], Schema.t(), default :: any()) :: any() | nil
+  def get(buffer, path, schema, default \\ nil) do
     cursor = Buffer.cursor(buffer, 0)
 
     with :ok <- Reading.check_buffer_id(cursor, schema.id) do
-      Access.get(path, schema.root_type, cursor, schema)
+      Access.get(path, schema.root_type, cursor, schema) || default
     end
   end
 
   @doc """
-  Same as get/3 but raises on error.
+  Fetches the value for a specific key (or key path) without decoding the entire
+  buffer.
+
+  If the buffer contains the key/path, then its value is returned in the shape
+  of `{:ok, value}`. If the value cannot be found, `:error` is returned.
   """
-  @spec get!(buffer :: iodata(), [atom() | integer()], Schema.t()) :: any()
-  def get!(buffer, path, schema) do
-    with {:ok, value} <- get(buffer, path, schema) do
-      value
-    else
-      {:error, _reason} = error -> throw(error)
+  @spec fetch(buffer :: iodata(), [atom() | integer()], Schema.t()) :: any()
+  def fetch(buffer, path, schema) do
+    case get(buffer, path, schema) do
+      nil -> :error
+      value -> {:ok, value}
+    end
+  end
+
+  @doc """
+  Fetches the value for a specific key (or key path) without decoding the entire
+  buffer.
+
+  If the buffer contains the key/path, the corresponding value is returned. If
+  buffer doesn't contain it, a `KeyError` exception is raised.
+  """
+  @spec fetch!(buffer :: iodata(), [atom() | integer()], Schema.t()) :: any()
+  def fetch!(buffer, path, schema) do
+    case get(buffer, path, schema) do
+      nil -> raise KeyError
+      value -> value
     end
   end
 
@@ -131,8 +152,9 @@ defmodule Flatbuffer do
         def schema, do: unquote(Macro.escape(schema))
         def read(buffer), do: Flatbuffer.read(buffer, schema())
         def read!(buffer), do: Flatbuffer.read!(buffer, schema())
-        def get(buffer, path), do: Flatbuffer.get(buffer, path, schema())
-        def get!(buffer, path), do: Flatbuffer.get!(buffer, path, schema())
+        def get(buffer, path, default \\ nil), do: Flatbuffer.get(buffer, path, schema(), default)
+        def fetch(buffer, path), do: Flatbuffer.fetch(buffer, path, schema())
+        def fetch!(buffer, path), do: Flatbuffer.fetch!(buffer, path, schema())
         def to_iolist(map), do: Flatbuffer.to_iolist(map, schema())
         def to_binary(map), do: Flatbuffer.to_binary(map, schema())
       end
