@@ -65,7 +65,13 @@ defmodule Flatbuffer do
 
   If `default` is not provided, `nil` is used.
   """
-  @spec get(buffer :: iodata(), [atom() | integer()], Schema.t(), default :: any()) :: any() | nil
+  @spec get(
+          buffer :: iodata(),
+          atom() | [atom() | integer()],
+          Schema.t(),
+          nil | default
+        ) :: default
+        when default: term()
   def get(buffer, path, schema, default \\ nil) do
     cursor = Buffer.cursor(buffer, 0)
 
