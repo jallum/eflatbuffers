@@ -1,5 +1,5 @@
 defmodule Flatbuffer do
-  @moduledoc """
+  @moduledoc ~S"""
   Flatbuffer binary serialization for Elixir.
 
   Provides functions to read from and write to Flatbuffer binaries using schema definitions.
@@ -11,7 +11,7 @@ defmodule Flatbuffer do
       binary = Flatbuffer.to_binary(map, schema)
 
       # Direct access
-      {:ok, value} = Flatbuffer.get(buffer, [:table, :field], schema)
+      value = Flatbuffer.get(buffer, [:table, :field], schema)
 
       # With schema file
       def YourThing do
@@ -24,6 +24,7 @@ defmodule Flatbuffer do
 
   """
 
+  alias Flatbuffer.BadFlatbufferError
   alias Flatbuffer.Access
   alias Flatbuffer.Buffer
   alias Flatbuffer.Reading
@@ -64,6 +65,8 @@ defmodule Flatbuffer do
   returned. Otherwise, `default` is returned.
 
   If `default` is not provided, `nil` is used.
+
+  If an unparseable buffer is provided, an BadFlatbufferError is raised.
   """
   @spec get(
           buffer :: iodata(),
@@ -73,11 +76,12 @@ defmodule Flatbuffer do
         ) :: default
         when default: term()
   def get(buffer, path, schema, default \\ nil) do
-    cursor = Buffer.cursor(buffer, 0)
-
-    with :ok <- Reading.check_buffer_id(cursor, schema.id) do
-      Access.get(path, schema.root_type, cursor, schema) || default
-    end
+    buffer
+    |> Buffer.cursor()
+    |> Access.get(path, schema.root_type, schema) || default
+  catch
+    error ->
+      raise BadFlatbufferError, message: "Failed to read Flatbuffer: #{inspect(error)}"
   end
 
   @doc """
@@ -85,7 +89,8 @@ defmodule Flatbuffer do
   buffer.
 
   If the buffer contains the key/path, then its value is returned in the shape
-  of `{:ok, value}`. If the value cannot be found, `:error` is returned.
+  of `{:ok, value}`. If the value cannot be found, `:error` is returned. If the
+  buffer does not pass the id-check, `{:error, {:id_mismatch, {buffer_id, schema_id}}}`
   """
   @spec fetch(buffer :: iodata(), [atom() | integer()], Schema.t()) :: any()
   def fetch(buffer, path, schema) do
@@ -105,7 +110,7 @@ defmodule Flatbuffer do
   @spec fetch!(buffer :: iodata(), [atom() | integer()], Schema.t()) :: any()
   def fetch!(buffer, path, schema) do
     case get(buffer, path, schema) do
-      nil -> raise KeyError
+      nil -> raise KeyError, term: buffer, key: path
       value -> value
     end
   end

@@ -113,10 +113,14 @@ defmodule Flatbuffer.Reading do
         # record in the vtable
         {:union, %{members: members}} = Map.get(schema.entities, union_name)
 
-        table_name = Map.get(members, index - 1)
-        type_key = :"#{name}_type"
+        case Map.get(members, index - 1) do
+          nil ->
+            {fields, row}
 
-        {[{name, {:table, %{name: table_name}}} | fields], Map.put(row, type_key, table_name)}
+          table_name ->
+            type_key = :"#{name}_type"
+            {[{name, {:table, %{name: table_name}}} | fields], Map.put(row, type_key, table_name)}
+        end
       end
 
     read_table(row, count - 1, fields, Cursor.skip(vtable, 2), table, schema)

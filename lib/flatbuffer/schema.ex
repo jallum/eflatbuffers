@@ -84,7 +84,7 @@ defmodule Flatbuffer.Schema do
           | {:error, :root_type_is_undefined}
           | {:error, {:root_type_not_found, type_name :: String.t()}}
           | {:error, {:root_type_is_not_a_table, type_name :: String.t()}}
-          | {:error, {:entity_not_found, type_name :: String.t()}}
+          | {:error, {:type_not_found, type_name :: String.t()}}
 
   @doc """
   Reads and parses a FlatBuffer schema from a file.
@@ -114,7 +114,7 @@ defmodule Flatbuffer.Schema do
          true <- is_function(resolver_fn, 1) || {:error, {:no_resolver, file_name}},
          {:ok, file_contents} <- resolver_fn.(file_name),
          {:ok, {entities, directives}} <- chain_load(file_name, file_contents, resolver_fn),
-         {:ok, entities} <- decorate(entities) do
+         {:ok, entities} <- resolve_types(entities) do
       {:ok, new(entities, directives)}
     end
   end
@@ -146,7 +146,7 @@ defmodule Flatbuffer.Schema do
           {:ok, t()} | from_errors()
   def from_string(string, opts \\ []) do
     with {:ok, {entities, directives}} <- chain_load(:string, string, opts[:resolver]),
-         {:ok, entities} <- decorate(entities) do
+         {:ok, entities} <- resolve_types(entities) do
       {:ok, new(entities, directives)}
     end
   end
@@ -271,7 +271,7 @@ defmodule Flatbuffer.Schema do
 
   # this preprocesses the schema in order to keep the read/write code as simple
   # as possible correlate tables with names and define defaults explicitly
-  def decorate(entities) do
+  def resolve_types(entities) do
     {:ok,
      Enum.reduce(
        entities,
@@ -280,144 +280,104 @@ defmodule Flatbuffer.Schema do
          # for a tables we transform the types to explicitly signify vectors,
          # tables, and enums
          {key, {:table, fields}}, acc ->
-           Map.put(
-             acc,
-             key,
-             {:table, table_options(fields, entities)}
-           )
+           Map.put(acc, key, {:table, table_options(fields, entities)})
 
          # for enums we change the list of options into a map for faster lookup
          # when writing and reading
-         {key, {{:enum, type}, fields}}, acc ->
-           hash =
-             Enum.reduce(
-               Enum.with_index(fields),
-               %{},
-               fn {field, index}, hash_acc ->
-                 Map.put(hash_acc, field, index) |> Map.put(index, field)
-               end
-             )
+         {key, {{:enum, type}, members}}, acc ->
+           members = enumerate_members(members)
+           Map.put(acc, key, {:enum, %{type: {type, %{default: 0}}, members: members}})
 
-           Map.put(acc, key, {:enum, %{type: {type, %{default: 0}}, members: hash}})
-
-         {key, {:union, fields}}, acc ->
-           hash =
-             Enum.reduce(
-               Enum.with_index(fields),
-               %{},
-               fn {field, index}, hash_acc ->
-                 Map.put(hash_acc, field, index) |> Map.put(index, field)
-               end
-             )
-
-           Map.put(acc, key, {:union, %{members: hash}})
+         {key, {:union, members}}, acc ->
+           members = enumerate_members(members)
+           Map.put(acc, key, {:union, %{members: members}})
 
          {key, {:struct, fields}}, acc ->
            Map.put(acc, key, {:struct, %{members: fields}})
        end
      )}
   catch
-    {:error, {:entity_not_found, _type_name}} = error ->
+    {:error, {:type_not_found, _type_name}} = error ->
       error
   end
 
-  def table_options(fields, entities) do
-    fields_and_indices(fields, entities, {0, [], %{}})
+  defp enumerate_members(members) do
+    members
+    |> Enum.with_index()
+    |> Enum.reduce(
+      %{},
+      fn {field, index}, acc ->
+        Map.put(acc, field, index) |> Map.put(index, field)
+      end
+    )
   end
 
-  def fields_and_indices([], _, {_, fields, indices}),
-    do: %{fields: Enum.reverse(fields), indices: indices}
+  defp table_options(fields, entities) do
+    {_, fields, indices} =
+      fields
+      |> Enum.reduce({0, [], %{}}, fn
+        {name, type}, {index, fields, indices} ->
+          resolved_type = resolve_type(type, entities)
 
-  def fields_and_indices(
-        [{field_name, field_value} | fields],
-        entities,
-        {index, fields_acc, indices_acc}
-      ) do
-    index_offset = index_offset(field_value, entities)
-    decorated_type = decorate_field(field_value, entities)
-    index_new = index + index_offset
-    fields_acc_new = [{field_name, decorated_type} | fields_acc]
-    indices_acc_new = Map.put(indices_acc, field_name, {index, decorated_type})
-    fields_and_indices(fields, entities, {index_new, fields_acc_new, indices_acc_new})
+          updated_indices =
+            case resolved_type do
+              {:union, %{name: union_name}} ->
+                indices
+                |> Map.put(name, {index, resolved_type})
+                |> Map.put(:"#{name}_type", {index, {:union_type, union_name}})
+
+              _ ->
+                Map.put(indices, name, {index, resolved_type})
+            end
+
+          {
+            next_index(index, resolved_type),
+            [{name, resolved_type} | fields],
+            updated_indices
+          }
+      end)
+
+    %{fields: Enum.reverse(fields), indices: indices}
   end
 
-  def index_offset(field_value, entities) do
-    case is_referenced?(field_value) do
-      true ->
-        case Map.get(entities, field_value) do
-          {:union, _} ->
-            2
+  defp next_index(index, {:union, _}), do: index + 2
+  defp next_index(index, _), do: index + 1
 
-          _ ->
-            1
-        end
+  defp resolve_type({:vector, type}, entities),
+    do: {:vector, resolve_type(type, entities)}
 
-      false ->
-        1
+  defp resolve_type(name, entities) when is_binary(name) do
+    case Map.get(entities, name) do
+      nil -> throw({:error, {:type_not_found, name}})
+      {:table, _} -> {:table, %{name: name}}
+      {{:enum, _}, _} -> {:enum, %{name: name}}
+      {:union, _} -> {:union, %{name: name}}
+      {:struct, _} -> {:struct, %{name: name}}
     end
   end
 
-  def decorate_field({:vector, type}, entities),
-    do: {:vector, decorate_field(type, entities)}
+  defp resolve_type(:bool, _), do: {:bool, %{default: false}}
+  defp resolve_type(:string, _), do: {:string, %{}}
 
-  def decorate_field(field_value, entities) do
-    if is_referenced?(field_value) do
-      decorate_referenced_field(field_value, entities)
-    else
-      decorate_field(field_value)
-    end
-  end
+  defp resolve_type(type, _)
+       when type in [
+              :byte,
+              :ubyte,
+              :bool,
+              :short,
+              :ushort,
+              :int,
+              :uint,
+              :float,
+              :long,
+              :ulong,
+              :double
+            ],
+       do: {type, %{default: 0}}
 
-  def decorate_referenced_field({type_name, default_value}, entities) do
-    case Map.get(entities, type_name) do
-      nil ->
-        throw({:error, {:entity_not_found, type_name}})
+  defp resolve_type({type, default}, entities),
+    do: resolve_type(type, entities) |> with_default_value(default)
 
-      {{:enum, _}, _} ->
-        {:enum, %{name: type_name, default: default_value}}
-    end
-  end
-
-  def decorate_referenced_field(type_name, entities) do
-    case Map.get(entities, type_name) do
-      nil ->
-        throw({:error, {:entity_not_found, type_name}})
-
-      {:table, _} ->
-        {:table, %{name: type_name}}
-
-      {{:enum, _}, _} ->
-        {:enum, %{name: type_name}}
-
-      {:union, _} ->
-        {:union, %{name: type_name}}
-
-      {:struct, _} ->
-        {:struct, %{name: type_name}}
-    end
-  end
-
-  def decorate_field({type, default}), do: {type, %{default: default}}
-  def decorate_field(:bool), do: {:bool, %{default: false}}
-  def decorate_field(:string), do: {:string, %{}}
-  def decorate_field(type), do: {type, %{default: 0}}
-
-  def is_referenced?({type, _default}), do: is_referenced?(type)
-  def is_referenced?(type), do: not Enum.member?(literal_types(), type)
-
-  defp literal_types,
-    do: [
-      :string,
-      :byte,
-      :ubyte,
-      :bool,
-      :short,
-      :ushort,
-      :int,
-      :uint,
-      :float,
-      :long,
-      :ulong,
-      :double
-    ]
+  defp with_default_value({type, %{} = options}, default),
+    do: {type, Map.put(options, :default, default)}
 end
