@@ -46,7 +46,8 @@ defmodule FlatBuffer.Schema.UnionTypesTest do
                        ],
                        indices: %{
                          data: {0, {:union, %{name: "command"}}},
-                         additions_value: {2, {:int, %{default: 0}}}
+                         additions_value: {2, {:int, %{default: 0}}},
+                         data_type: {0, {:union_type, "command"}}
                        }
                      }},
                   "hello" =>
@@ -55,7 +56,7 @@ defmodule FlatBuffer.Schema.UnionTypesTest do
                 },
                 root_type: {:table, %{name: "command_root"}},
                 id: "cmnd"
-              }} = Schema.from_string(schema)
+              }} == Schema.from_string(schema)
     end
   end
 end
