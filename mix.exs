@@ -4,7 +4,7 @@ defmodule Eflatbuffers.MixProject do
   def project do
     [
       app: :flatbuffer,
-      version: "0.2.2",
+      version: "0.3.0-dev",
       description: "Elixir Flatbuffer implementation",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
@@ -24,20 +24,10 @@ defmodule Eflatbuffers.MixProject do
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [extra_applications: [:logger]]
   end
 
-  # Dependencies can be Hex packages:
-  #
-  #   {:mydep, "~> 0.3.0"}
-  #
-  # Or git/path repositories:
-  #
-  #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
-  #
-  # Type "mix help deps" for more examples and options
   defp deps do
     [
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
