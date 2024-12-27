@@ -63,7 +63,6 @@ iex(1)> {:ok, schema} = Flatbuffer.Schema.from_file("Example.fbs")
  ```
 
 Serializing data:
-
 ```elixir
 iex(2)> color_scheme = %{foreground: %{red: 128, green: 20, blue: 255}, background: %{red: 0, green: 100, blue: 128}}
 iex(3)> color_scheme_fb = Flatbuffer.to_binary(color_scheme, schema)
@@ -73,7 +72,6 @@ iex(3)> color_scheme_fb = Flatbuffer.to_binary(color_scheme, schema)
 ```
 
 So we can `read` the whole thing which converts it back into a map:
-
 ```elixir
 iex(4)> Flatbuffer.read!(color_scheme_fb, schema)
 %{
@@ -82,13 +80,54 @@ iex(4)> Flatbuffer.read!(color_scheme_fb, schema)
 }
 ```
 
-Or we can `get` a portion with means it seeks into the flatbuffer and only deserializes the part below the path:
+Or we can `get` a value from the buffer without decoding the whole thing. This
+can be done either with an atom key (for the root-table fields) or with a 
+key-path composed of a list of atoms and integers:
 ```elixir
 iex(5)> Flatbuffer.get(color_scheme_fb, [:background], schema)
 %{blue: 128, green: 100, red: 0}
 iex(6)> Flatbuffer.get(color_scheme_fb, [:background, :green], schema)
 100
 ```
+
+## Conveniences:
+
+For schemas that will be often used or that need to be included with an
+application, you can use `Flatbuffer.use/1` to compile the schema into a 
+module:
+```elixir
+defmodule ColorScheme do
+  use Flatbuffer,
+    path: "priv/fb",
+    schema: "color_scheme.fbs"
+end
+```
+
+The schema (and any includes) will be read and parsed, and then compiled into 
+the module. The source files for the schema do not need to be read again or 
+included with the application. The functions of `Flatbuffer` are available in 
+the module, but with the schema predefined.
+
+For example:
+```elixir
+iex> color_scheme = %{foreground: %{red: 128, green: 20, blue: 255}, background: %{red: 0, green: 100, blue: 128}}
+iex(2)> color_scheme_fb = ColorScheme.to_binary(color_scheme)
+<<16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 18, 0, 0,
+  0, 31, 0, 0, 0, 10, 0, 7, 0, 4, 0, 5, 0, 6, 0, 10, 0, 0, 0, 128, 20,
+  255, 10, 0, 6, 0, 0, ...>>
+```
+
+We can `get` a value from the buffer without decoding the whole thing. This
+can be done either with an atom key (for the root-table fields) or with a 
+key-path composed of a list of atoms and integers:
+
+```elixir
+iex(3)> ColorScheme.get(color_scheme_fb, :background)
+%{blue: 128, green: 100, red: 0}
+iex(4)> ColorScheme.get(color_scheme_fb, [:background, :green])
+100
+```
+
 
 ## Comparing Flatbuffer to flatc
 
