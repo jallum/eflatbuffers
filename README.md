@@ -84,9 +84,9 @@ iex(4)> Flatbuffer.read!(color_scheme_fb, schema)
 
 Or we can `get` a portion with means it seeks into the flatbuffer and only deserializes the part below the path:
 ```elixir
-iex(5)> Flatbuffer.get!(color_scheme_fb, [:background], schema)
+iex(5)> Flatbuffer.get(color_scheme_fb, [:background], schema)
 %{blue: 128, green: 100, red: 0}
-iex(6)> Flatbuffer.get!(color_scheme_fb, [:background, :green], schema)
+iex(6)> Flatbuffer.get(color_scheme_fb, [:background, :green], schema)
 100
 ```
 
