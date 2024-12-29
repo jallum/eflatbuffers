@@ -102,7 +102,7 @@ defmodule Flatbuffer.Reading do
          schema
        ) do
     data_offset = Cursor.get_i16(vtable)
-    index = Cursor.get_u8(table, data_offset)
+    index = Cursor.skip(table, data_offset) |> Cursor.get_u8()
 
     {fields, row} =
       if index == 0 do

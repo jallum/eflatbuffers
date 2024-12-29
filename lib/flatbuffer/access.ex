@@ -84,7 +84,7 @@ defmodule Flatbuffer.Access do
     table = Cursor.jump_i32(cursor)
     vtable = Cursor.rjump_i32(table)
 
-    case Cursor.get_i16(vtable, 4 + index * 2) do
+    case Cursor.skip(vtable, 4 + index * 2) |> Cursor.get_i16() do
       0 -> nil
       data_offset -> Cursor.skip(table, data_offset)
     end

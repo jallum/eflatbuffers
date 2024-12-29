@@ -26,7 +26,7 @@ defmodule Flatbuffer do
 
   alias Flatbuffer.BadFlatbufferError
   alias Flatbuffer.Access
-  alias Flatbuffer.Buffer
+  alias Flatbuffer.Cursor
   alias Flatbuffer.Reading
   alias Flatbuffer.Schema
   alias Flatbuffer.Writer
@@ -39,7 +39,7 @@ defmodule Flatbuffer do
           {:ok, map()}
           | {:error, {:id_mismatch, %{buffer_id: binary(), schema_id: binary()}}}
   def read(buffer, %Schema{} = schema) do
-    cursor = Buffer.cursor(buffer, 0)
+    cursor = Cursor.wrap(buffer)
 
     with :ok <- Reading.check_buffer_id(cursor, schema.id) do
       {:ok, Reading.read(schema.root_type, cursor, schema)}
@@ -77,7 +77,7 @@ defmodule Flatbuffer do
         when default: term()
   def get(buffer, path, schema, default \\ nil) do
     buffer
-    |> Buffer.cursor()
+    |> Cursor.wrap()
     |> Access.get(path, schema.root_type, schema) || default
   catch
     error ->
