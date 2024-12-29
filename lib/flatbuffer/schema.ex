@@ -271,7 +271,7 @@ defmodule Flatbuffer.Schema do
 
   # this preprocesses the schema in order to keep the read/write code as simple
   # as possible correlate tables with names and define defaults explicitly
-  def resolve_types(entities) do
+  defp resolve_types(entities) do
     {:ok,
      Enum.reduce(
        entities,
